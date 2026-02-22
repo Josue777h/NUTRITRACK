@@ -1,0 +1,11 @@
+{
+  "name": "nutritrack-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "start": "npm --prefix NutriTrack run start",
+    "dev": "npm --prefix NutriTrack run dev",
+    "build": "npm --prefix NutriTrack run build",
+    "preview": "npm --prefix NutriTrack run preview"
+  }
+}
