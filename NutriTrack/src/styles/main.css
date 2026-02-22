@@ -54,6 +54,12 @@ select {
     font: inherit;
 }
 
+img,
+svg,
+canvas {
+    max-width: 100%;
+}
+
 :focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
@@ -280,10 +286,19 @@ select {
     cursor: pointer;
     font-weight: 600;
     transition: background-color 0.15s ease, filter 0.15s ease;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
 }
 
 .btn:hover {
     filter: brightness(0.96);
+}
+
+.btn i {
+    flex-shrink: 0;
 }
 
 .btn.secondary {
@@ -750,6 +765,10 @@ select {
     color: var(--muted);
 }
 
+.profile-details strong {
+    overflow-wrap: anywhere;
+}
+
 .divider {
     border: 0;
     border-top: 1px solid var(--line);
@@ -818,6 +837,10 @@ select {
     color: #2f485f;
 }
 
+.login-points code {
+    overflow-wrap: anywhere;
+}
+
 .login-form {
     padding: 1.85rem;
     display: grid;
@@ -833,6 +856,10 @@ select {
     color: var(--muted);
     font-size: 0.84rem;
     margin-bottom: 0.15rem;
+}
+
+.login-form .btn {
+    width: 100%;
 }
 
 @media (max-width: 1200px) {
@@ -890,6 +917,13 @@ select {
 
     .topbar {
         position: static;
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .panel-header {
+        flex-wrap: wrap;
+        align-items: flex-start;
     }
 }
 
@@ -934,6 +968,24 @@ select {
         border-right: 0;
         border-bottom: 1px solid var(--line);
     }
+
+    .quick-actions,
+    .report-actions,
+    .action-row,
+    .table-actions,
+    .slot-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .quick-actions .btn,
+    .report-actions .btn,
+    .action-row .btn,
+    .table-actions .btn,
+    .slot-actions .btn,
+    .topbar .btn {
+        width: 100%;
+    }
 }
 
 @media (max-width: 620px) {
@@ -947,6 +999,10 @@ select {
     .action-row .btn,
     .report-actions .btn {
         width: 100%;
+    }
+
+    .profile-details article {
+        flex-wrap: wrap;
     }
 }
 
@@ -1016,5 +1072,9 @@ select {
 
     .table td[data-label="Acciones"] .table-actions {
         justify-content: flex-start;
+    }
+
+    .table td[data-label="Acciones"] .table-actions .btn {
+        width: 100%;
     }
 }
