@@ -121,11 +121,11 @@ function PatientsPage() {
                         <tbody>
                             {patients.map((patient) => (
                                 <tr key={patient.id}>
-                                    <td>{patient.name}</td>
-                                    <td>{patient.age}</td>
-                                    <td>{patient.weight} kg</td>
-                                    <td>{patient.target}</td>
-                                    <td>
+                                    <td data-label="Nombre">{patient.name}</td>
+                                    <td data-label="Edad">{patient.age}</td>
+                                    <td data-label="Peso">{patient.weight} kg</td>
+                                    <td data-label="Objetivo">{patient.target}</td>
+                                    <td data-label="Acciones">
                                         <div className="table-actions">
                                             <button
                                                 className="btn secondary small"

@@ -36,6 +36,7 @@ body {
     font-family: "Poppins", "Roboto", sans-serif;
     color: var(--text);
     background: linear-gradient(180deg, #f6f9fc 0%, var(--bg) 100%);
+    overflow-x: hidden;
 }
 
 h1,
@@ -204,6 +205,40 @@ select {
     margin-top: 1rem;
     display: grid;
     gap: 1rem;
+}
+
+.app-shell,
+.main-panel,
+.screen-content,
+.panel,
+.split-layout,
+.profile-grid,
+.stats-grid,
+.calendar-grid,
+.plan-grid,
+.report-grid,
+.details-grid,
+.quick-actions,
+.report-actions,
+.action-row,
+.table-actions,
+.slot-actions {
+    min-width: 0;
+}
+
+.panel-header > div,
+.topbar > div {
+    min-width: 0;
+}
+
+.panel-title,
+.panel-subtitle,
+.topbar h2,
+.topbar p,
+.slot-note,
+.meal-line,
+.empty-state {
+    overflow-wrap: anywhere;
 }
 
 .panel {
@@ -871,6 +906,10 @@ select {
         grid-template-columns: 1fr;
     }
 
+    .form-grid.two-columns {
+        grid-template-columns: 1fr;
+    }
+
     .progress-box {
         grid-template-columns: 1fr;
         justify-items: center;
@@ -905,11 +944,77 @@ select {
     }
 
     .quick-actions .btn,
-    .action-row .btn {
+    .action-row .btn,
+    .report-actions .btn {
         width: 100%;
+    }
+}
+
+@media (max-width: 700px) {
+    .panel {
+        padding: 0.95rem;
+    }
+
+    .table-wrap {
+        border: 0;
+        background: transparent;
+        overflow: visible;
     }
 
     .table {
-        min-width: 520px;
+        min-width: 0;
+    }
+
+    .table thead {
+        display: none;
+    }
+
+    .table tbody {
+        display: grid;
+        gap: 0.7rem;
+    }
+
+    .table tr {
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface-soft);
+        padding: 0.56rem 0.66rem;
+    }
+
+    .table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.8rem;
+        border-bottom: 1px dashed #cbd8e6;
+        padding: 0.5rem 0.2rem;
+        text-align: right;
+    }
+
+    .table td:last-child {
+        border-bottom: 0;
+        padding-bottom: 0.2rem;
+    }
+
+    .table td::before {
+        content: attr(data-label);
+        color: #3a5168;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    .table td[data-label="Acciones"] {
+        display: block;
+        text-align: left;
+    }
+
+    .table td[data-label="Acciones"]::before {
+        display: block;
+        margin-bottom: 0.42rem;
+    }
+
+    .table td[data-label="Acciones"] .table-actions {
+        justify-content: flex-start;
     }
 }
