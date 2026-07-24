@@ -1,179 +1,251 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 
 const initialForm = {
-    username: "",
+    email: "",
     password: "",
-    role: "nutriologo",
-    selectedPatientId: ""
+    rememberMe: false
 };
 
 function LoginPage({ onLogin }) {
-    const { patients } = useApp();
-    const { showSuccess, showError } = useToast();
+    const { showSuccess, showError, showWarning } = useToast();
     const [form, setForm] = useState(initialForm);
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [clickCount, setClickCount] = useState(0);
+    const [showDemoAccess, setShowDemoAccess] = useState(false);
 
     const handleChange = (event) => {
-        const { name, value } = event.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = event.target;
+        setForm((prev) => ({
+            ...prev,
+            [name]: type === "checkbox" ? checked : value
+        }));
     };
 
     const handleSubmit = async (event) => {
         event.preventDefault();
         setIsLoading(true);
-
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            const result = onLogin(form);
+            await new Promise((resolve) => setTimeout(resolve, 900));
+            const result = await onLogin({ email: form.email, password: form.password });
             if (result.ok) {
-                showSuccess(`¡Bienvenido${form.role === 'nutriologo' ? ' Nutriólogo' : ''}!`);
+                showSuccess("¡Bienvenido de nuevo! Sesión iniciada correctamente.");
             } else {
-                showError(result.message || 'Error al iniciar sesión');
+                showError(result.message || "Correo o contraseña incorrectos.");
             }
-        } catch (error) {
-            showError('Error de conexión. Intenta nuevamente.');
+        } catch {
+            showError("Error de conexión. Por favor intente nuevamente.");
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleQuickLogin = (role, username, password) => {
-        setForm({
-            ...form,
-            role,
-            username,
-            password,
-            selectedPatientId: role === 'usuario' ? patients[0]?.id || '' : ''
-        });
+    const handleLogoClick = () => {
+        const nextCount = clickCount + 1;
+        setClickCount(nextCount);
+        if (nextCount >= 5) {
+            setShowDemoAccess(!showDemoAccess);
+            setClickCount(0);
+            showSuccess("Acceso rápido de demostración desbloqueado.");
+        }
     };
+
+    const handleQuickLogin = (email, password) => {
+        setForm({ email, password, rememberMe: true });
+    };
+
+    const handleForgotPassword = (e) => {
+        e.preventDefault();
+        showWarning("Credenciales de acceso — Nutriólogo: josuesepulvedassj@gmail.com / josue123 · Paciente: josuexdsepulveda@gmail.com / josue123");
+    };
+
+    const features = [
+        { icon: "bi-people-fill",        title: "Gestión de pacientes",      desc: "Expedientes clínicos completos" },
+        { icon: "bi-apple",              title: "Planes alimenticios",        desc: "Diseño nutricional personalizado" },
+        { icon: "bi-graph-up-arrow",     title: "Seguimiento nutricional",   desc: "Reportes de progreso en tiempo real" },
+        { icon: "bi-calendar3-event-fill", title: "Agenda inteligente",      desc: "Control de citas y recordatorios" },
+    ];
 
     return (
         <section className="login-page">
+            {/* Fondo animado */}
+            <div className="login-bg-orbs">
+                <span className="orb orb-1" />
+                <span className="orb orb-2" />
+                <span className="orb orb-3" />
+            </div>
+
             <article className="login-card">
+                {/* ── Columna izquierda ── */}
                 <div className="login-info">
-                    <div className="login-logo">
-                        <i className="bi bi-heart-pulse-fill" />
+                    <div className="login-brand" onClick={handleLogoClick} title="Haz clic 5 veces para modo demo" style={{ cursor: "pointer" }}>
+                        <span className="login-logo-icon">
+                            <i className="bi bi-heart-pulse-fill" />
+                        </span>
+                        <span className="login-brand-name">NutriTrack</span>
                     </div>
-                    <h1>NutriTrack</h1>
-                    <p>
-                        Prototipo funcional del sistema de gestión y seguimiento
-                        nutricional. Todas las acciones son interactivas.
-                    </p>
-                    <div className="login-points">
-                        <article>
-                            <strong>Acceso rápido:</strong>
-                            <div className="quick-login-buttons">
-                                <button 
-                                    type="button" 
-                                    className="quick-login-btn nutriologo"
-                                    onClick={() => handleQuickLogin('nutriologo', 'Dra. Maria Torres', '123456')}
+
+                    <div className="login-headline">
+                        <h1>Tu consultorio<br /><span className="login-headline-accent">en un solo lugar</span></h1>
+                        <p>Gestiona pacientes, planes y citas con la herramienta más completa para nutriólogos profesionales.</p>
+                    </div>
+
+                    <ul className="login-features">
+                        {features.map((f) => (
+                            <li key={f.icon} className="login-feature-item">
+                                <span className="login-feature-icon">
+                                    <i className={`bi ${f.icon}`} />
+                                </span>
+                                <div>
+                                    <strong>{f.title}</strong>
+                                    <p>{f.desc}</p>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+
+                    {showDemoAccess && (
+                        <div className="demo-panel">
+                            <span className="demo-panel-label">
+                                <i className="bi bi-lightning-charge-fill" /> Acceso Rápido Demo
+                            </span>
+                            <div className="demo-btns">
+                                <button
+                                    type="button"
+                                    className="demo-btn demo-nutriologo"
+                                    onClick={() => handleQuickLogin("josuesepulvedassj@gmail.com", "josue123")}
                                 >
-                                    <i className="bi bi-person-badge" />
-                                    Nutriólogo Demo
+                                    <i className="bi bi-person-badge-fill" />
+                                    <span>
+                                        <strong>Nutriólogo</strong>
+                                        <small>josuesepulvedassj@gmail.com</small>
+                                    </span>
                                 </button>
-                                <button 
-                                    type="button" 
-                                    className="quick-login-btn usuario"
-                                    onClick={() => handleQuickLogin('usuario', 'usuario_demo', '123456')}
+                                <button
+                                    type="button"
+                                    className="demo-btn demo-paciente"
+                                    onClick={() => handleQuickLogin("josuexdsepulveda@gmail.com", "josue123")}
                                 >
-                                    <i className="bi bi-person" />
-                                    Usuario Demo
+                                    <i className="bi bi-person-heart" />
+                                    <span>
+                                        <strong>Paciente</strong>
+                                        <small>josuexdsepulveda@gmail.com</small>
+                                    </span>
                                 </button>
                             </div>
-                        </article>
-                        <article>
-                            <strong>Rol Nutriólogo:</strong> Administra pacientes, citas,
-                            planes y reportes.
-                        </article>
-                        <article>
-                            <strong>Rol Usuario:</strong> Consulta su plan personal, citas y
-                            seguimiento.
-                        </article>
-                    </div>
+                        </div>
+                    )}
                 </div>
-                <form className="login-form" onSubmit={handleSubmit}>
-                    <h2>Iniciar sesión</h2>
-                    <p>Selecciona el tipo de cuenta para cargar las opciones del sistema.</p>
 
-                    <div className="field">
-                        <label htmlFor="role">Tipo de cuenta</label>
-                        <select id="role" name="role" value={form.role} onChange={handleChange}>
-                            <option value="nutriologo">Nutriólogo</option>
-                            <option value="usuario">Usuario</option>
-                        </select>
-                    </div>
+                {/* ── Columna derecha (formulario) ── */}
+                <div className="login-form-col">
+                    <form className="login-form" onSubmit={handleSubmit} noValidate>
+                        <header className="login-form-header">
+                            <h2>Iniciar sesión</h2>
+                            <p>Bienvenido de nuevo. Introduce tus credenciales para acceder.</p>
+                        </header>
 
-                    <div className="field">
-                        <label htmlFor="username">Usuario</label>
-                        <input
-                            id="username"
-                            name="username"
-                            type="text"
-                            placeholder={form.role === "nutriologo" ? "Dra. Maria Torres" : "usuario_demo"}
-                            value={form.username}
-                            onChange={handleChange}
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
-
-                    {form.role === "usuario" ? (
                         <div className="field">
-                            <label htmlFor="selectedPatientId">Paciente asociado</label>
-                            <select
-                                id="selectedPatientId"
-                                name="selectedPatientId"
-                                value={form.selectedPatientId}
+                            <label htmlFor="email">
+                                <i className="bi bi-envelope-fill" style={{ marginRight: "0.4rem", opacity: 0.6 }} />
+                                Correo electrónico
+                            </label>
+                            <input
+                                id="email"
+                                name="email"
+                                type="email"
+                                placeholder="nombre@correo.com"
+                                value={form.email}
                                 onChange={handleChange}
                                 required
                                 disabled={isLoading}
-                            >
-                                <option value="">Selecciona paciente</option>
-                                {patients.map((patient) => (
-                                    <option key={patient.id} value={patient.id}>
-                                        {patient.name}
-                                    </option>
-                                ))}
-                            </select>
+                                autoComplete="email"
+                            />
                         </div>
-                    ) : null}
 
-                    <div className="field">
-                        <label htmlFor="password">Contraseña</label>
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            placeholder="123456"
-                            value={form.password}
-                            onChange={handleChange}
-                            required
+                        <div className="field">
+                            <label htmlFor="password">
+                                <i className="bi bi-lock-fill" style={{ marginRight: "0.4rem", opacity: 0.6 }} />
+                                Contraseña
+                            </label>
+                            <div className="password-wrapper">
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="••••••••"
+                                    value={form.password}
+                                    onChange={handleChange}
+                                    required
+                                    disabled={isLoading}
+                                    autoComplete="current-password"
+                                />
+                                <button
+                                    type="button"
+                                    className="password-toggle"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    tabIndex={-1}
+                                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                                >
+                                    <i className={showPassword ? "bi bi-eye-slash-fill" : "bi bi-eye-fill"} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="login-options">
+                            <label className="remember-me">
+                                <input
+                                    type="checkbox"
+                                    name="rememberMe"
+                                    checked={form.rememberMe}
+                                    onChange={handleChange}
+                                    disabled={isLoading}
+                                />
+                                <span>Recordarme</span>
+                            </label>
+                            <a href="#forgot" className="forgot-link" onClick={handleForgotPassword}>
+                                ¿Olvidaste tu contraseña?
+                            </a>
+                        </div>
+
+                        <button
+                            type="submit"
+                            className={`btn login-submit-btn${isLoading ? " loading" : ""}`}
                             disabled={isLoading}
-                        />
-                    </div>
+                        >
+                            {isLoading ? (
+                                <>
+                                    <i className="bi bi-arrow-repeat spinning" />
+                                    Verificando credenciales...
+                                </>
+                            ) : (
+                                <>
+                                    <i className="bi bi-box-arrow-in-right" />
+                                    Iniciar sesión
+                                </>
+                            )}
+                        </button>
 
-                    <button 
-                        type="submit" 
-                        className={`btn ${isLoading ? 'loading' : ''}`}
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <>
-                                <i className="bi bi-arrow-repeat spinning" />
-                                Iniciando sesión...
-                            </>
-                        ) : (
-                            <>
-                                <i className="bi bi-box-arrow-in-right" />
-                                Iniciar sesión
-                            </>
-                        )}
-                    </button>
-                </form>
+                        <div className="login-divider">
+                            <span>¿Primera vez aquí?</span>
+                        </div>
+
+                        <Link to="/register" className="btn login-register-btn">
+                            <i className="bi bi-person-plus-fill" />
+                            Crear una cuenta nueva
+                        </Link>
+                    </form>
+
+                    <footer className="login-form-footer">
+                        <p>
+                            <i className="bi bi-shield-lock-fill" style={{ marginRight: "0.3rem", color: "var(--primary)" }} />
+                            Tus datos están protegidos con cifrado de extremo a extremo.
+                        </p>
+                    </footer>
+                </div>
             </article>
         </section>
     );

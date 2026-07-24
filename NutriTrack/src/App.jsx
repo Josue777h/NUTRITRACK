@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import PrivateRoute from "./components/PrivateRoute";
 import AppLayout from "./layout/AppLayout";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import PatientsPage from "./pages/PatientsPage";
 import AppointmentsPage from "./pages/AppointmentsPage";
@@ -14,8 +15,8 @@ function App() {
     const navigate = useNavigate();
     const { auth, login, logout } = useApp();
 
-    const handleLogin = (payload) => {
-        const result = login(payload);
+    const handleLogin = async (payload) => {
+        const result = await login(payload);
         if (result.ok) {
             navigate("/dashboard");
         }
@@ -58,6 +59,16 @@ function App() {
                     )
                 }
             />
+            <Route
+                path="/register"
+                element={
+                    auth.isAuthenticated ? (
+                        <Navigate to="/dashboard" replace />
+                    ) : (
+                        <RegisterPage />
+                    )
+                }
+            />
             <Route path="/dashboard" element={withLayout(<DashboardPage />)} />
             <Route
                 path="/pacientes"
@@ -67,6 +78,7 @@ function App() {
             <Route path="/planes" element={withLayout(<PlansPage />)} />
             <Route path="/reportes" element={withLayout(<ReportsPage />)} />
             <Route path="/perfil" element={withLayout(<ProfilePage onLogout={handleLogout} />)} />
+            <Route path="/configuracion" element={withLayout(<ProfilePage onLogout={handleLogout} defaultTab="configuracion" />)} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );

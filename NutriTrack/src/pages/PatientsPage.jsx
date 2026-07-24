@@ -1,286 +1,197 @@
-import { useMemo, useState } from "react";
+import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
-
-const emptyForm = {
-    name: "",
-    age: "",
-    weight: "",
-    height: "",
-    target: "Reducir peso",
-    notes: ""
-};
+import { useToast } from "../context/ToastContext";
+import AddPatientModal from "../components/AddPatientModal";
+import PatientClinicalPanel from "../components/PatientClinicalPanel";
 
 function PatientsPage() {
-    const { patients, addPatient, updatePatient, removePatient } = useApp();
-    const [form, setForm] = useState(emptyForm);
-    const [editingId, setEditingId] = useState(null);
-    const [selectedPatientId, setSelectedPatientId] = useState(patients[0]?.id ?? null);
-    const [feedback, setFeedback] = useState("");
+    const { patients, addPatient, updatePatient, removePatient, reports } = useApp();
+    const { showSuccess, showWarning } = useToast();
+    
+    const [selectedPatientId, setSelectedPatientId] = useState(null);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    
+    // Search and Filter States
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterGoal, setFilterGoal] = useState("");
 
-    const selectedPatient = useMemo(
-        () => patients.find((item) => item.id === selectedPatientId) ?? null,
-        [patients, selectedPatientId]
-    );
+    // Find the currently selected patient object
+    const selectedPatient = useMemo(() => {
+        return patients.find(p => p.id === selectedPatientId) || null;
+    }, [selectedPatientId, patients]);
 
-    const resetForm = () => {
-        setForm(emptyForm);
-        setEditingId(null);
-    };
-
-    const handleChange = (event) => {
-        const { name, value } = event.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
-    };
-
-    const handleSubmit = (event) => {
-        event.preventDefault();
-        if (!form.name.trim() || !form.age || !form.weight || !form.height) {
-            setFeedback("Completa los campos obligatorios del formulario.");
-            return;
-        }
-
-        if (editingId) {
-            updatePatient(editingId, form);
-            setFeedback("Paciente actualizado correctamente.");
-            setSelectedPatientId(editingId);
+    const handleAddPatient = async (patientData) => {
+        const saved = await addPatient(patientData);
+        if (patientData.email) {
+            showSuccess(`¡Paciente registrado con éxito!\n\nEl paciente puede crear su cuenta e ingresar usando el correo ${patientData.email.trim().toLowerCase()} desde la pantalla de registro público.`);
         } else {
-            const created = addPatient(form);
-            setFeedback("Paciente creado correctamente.");
-            setSelectedPatientId(created.id);
+            showSuccess("Paciente registrado con éxito.");
         }
-        resetForm();
+        setIsAddModalOpen(false);
+        if (saved) {
+            setSelectedPatientId(saved.id);
+        }
     };
 
-    const handleEdit = (patient) => {
-        setEditingId(patient.id);
-        setSelectedPatientId(patient.id);
-        setForm({
-            name: patient.name,
-            age: String(patient.age),
-            weight: String(patient.weight),
-            height: String(patient.height),
-            target: patient.target,
-            notes: patient.notes ?? ""
+    const handlePatientUpdate = (updatedPatient) => {
+        updatePatient(updatedPatient.id, updatedPatient);
+        showSuccess("Ficha del paciente actualizada.");
+    };
+
+    const handlePatientDelete = (patientId) => {
+        removePatient(patientId);
+        showWarning("Expediente eliminado correctamente.");
+        setSelectedPatientId(null);
+    };
+
+    // Filter patients based on search and target goal
+    const filteredPatients = useMemo(() => {
+        if (!patients) return [];
+        return patients.filter((patient) => {
+            const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                 (patient.email && patient.email.toLowerCase().includes(searchTerm.toLowerCase()));
+            const matchesGoal = filterGoal === "" || 
+                               (patient.target && patient.target.toLowerCase().includes(filterGoal.toLowerCase())) ||
+                               (patient.goal && patient.goal.toLowerCase().includes(filterGoal.toLowerCase()));
+            return matchesSearch && matchesGoal;
         });
-        setFeedback("Modo edicion activado.");
+    }, [patients, searchTerm, filterGoal]);
+
+    // Find last report date for each patient to show in the list card
+    const getLastConsultation = (patientId) => {
+        const patientReports = reports.filter(r => r.patientId === patientId);
+        if (patientReports.length === 0) return "Sin consultas";
+        const sorted = [...patientReports].sort((a, b) => b.date.localeCompare(a.date));
+        return formatDate(sorted[0].date);
     };
 
-    const handleDelete = (patient) => {
-        const confirmDelete = window.confirm(
-            `Se eliminara a ${patient.name} y sus citas/planes/reportes asociados.`
-        );
-        if (!confirmDelete) {
-            return;
-        }
-        removePatient(patient.id);
-        if (selectedPatientId === patient.id) {
-            setSelectedPatientId(null);
-        }
-        if (editingId === patient.id) {
-            resetForm();
-        }
-        setFeedback("Paciente eliminado correctamente.");
-    };
+    function formatDate(dateValue) {
+        if (!dateValue) return "";
+        return new Date(`${dateValue}T00:00:00`).toLocaleDateString("es-CO", {
+            day: "2-digit",
+            month: "short"
+        });
+    }
 
     return (
-        <section className="split-layout">
-            <article className="panel">
-                <div className="panel-header">
-                    <div>
-                        <h3 className="panel-title">Lista de pacientes</h3>
-                        <p className="panel-subtitle">
-                            Gestion completa de registro, detalle, edicion y eliminacion.
-                        </p>
-                    </div>
+        <section className="patients-split-view" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem", height: "calc(100vh - 120px)", minHeight: "600px", alignItems: "stretch" }}>
+            
+            {/* Left Pane: Directory (Always visible on desktop, responsive hides on mobile details) */}
+            <article className={`directory-pane ${selectedPatient ? "hide-on-mobile" : ""}`} style={{ display: "flex", flexDirection: "column", gap: "1rem", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: "1.25rem", background: "var(--surface)", height: "100%", overflowY: "hidden" }}>
+                
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <h3 style={{ fontSize: "1.25rem", fontWeight: "800", margin: 0 }}>Directorio</h3>
                     <button
-                        className="btn"
+                        className="btn success small"
                         type="button"
-                        onClick={() => {
-                            resetForm();
-                            setFeedback("Formulario listo para nuevo paciente.");
-                        }}
+                        onClick={() => setIsAddModalOpen(true)}
+                        style={{ background: "var(--primary)", border: "none", display: "flex", gap: "0.25rem", alignItems: "center", fontSize: "0.8rem" }}
                     >
-                        <i className="bi bi-plus-lg" />
-                        Nuevo paciente
+                        <i className="bi bi-person-plus-fill" />
+                        Registrar paciente
                     </button>
                 </div>
 
-                {feedback ? <p className="alert-inline success">{feedback}</p> : null}
-
-                <div className="table-wrap">
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Edad</th>
-                                <th>Peso</th>
-                                <th>Objetivo</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {patients.map((patient) => (
-                                <tr key={patient.id}>
-                                    <td data-label="Nombre">{patient.name}</td>
-                                    <td data-label="Edad">{patient.age}</td>
-                                    <td data-label="Peso">{patient.weight} kg</td>
-                                    <td data-label="Objetivo">{patient.target}</td>
-                                    <td data-label="Acciones">
-                                        <div className="table-actions">
-                                            <button
-                                                className="btn secondary small"
-                                                type="button"
-                                                onClick={() => setSelectedPatientId(patient.id)}
-                                            >
-                                                Ver detalles
-                                            </button>
-                                            <button
-                                                className="btn ghost small"
-                                                type="button"
-                                                onClick={() => handleEdit(patient)}
-                                            >
-                                                Modificar
-                                            </button>
-                                            <button
-                                                className="btn danger small"
-                                                type="button"
-                                                onClick={() => handleDelete(patient)}
-                                            >
-                                                Eliminar
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                {/* Search & Filters */}
+                <div style={{ display: "grid", gap: "0.5rem" }}>
+                    <div className="field" style={{ margin: 0 }}>
+                        <div style={{ position: "relative" }}>
+                            <i className="bi bi-search" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontSize: "0.9rem" }} />
+                            <input
+                                placeholder="Buscar paciente por nombre o email..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ paddingLeft: "2.25rem", fontSize: "0.85rem", height: "2.4rem" }}
+                            />
+                        </div>
+                    </div>
+                    <div className="field" style={{ margin: 0 }}>
+                        <select
+                            value={filterGoal}
+                            onChange={(e) => setFilterGoal(e.target.value)}
+                            style={{ fontSize: "0.85rem", height: "2.4rem" }}
+                        >
+                            <option value="">Todos los objetivos</option>
+                            <option value="Reducir IMC">Reducir IMC</option>
+                            <option value="Control calórico">Control calórico</option>
+                            <option value="Masa muscular">Masa muscular</option>
+                            <option value="Plan deportivo">Plan deportivo</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div className="details-box">
-                    <h4>Detalles del paciente</h4>
-                    {selectedPatient ? (
-                        <div className="details-grid">
-                            <article>
-                                <span>Nombre</span>
-                                <strong>{selectedPatient.name}</strong>
-                            </article>
-                            <article>
-                                <span>Edad</span>
-                                <strong>{selectedPatient.age} anios</strong>
-                            </article>
-                            <article>
-                                <span>Peso</span>
-                                <strong>{selectedPatient.weight} kg</strong>
-                            </article>
-                            <article>
-                                <span>Altura</span>
-                                <strong>{selectedPatient.height} cm</strong>
-                            </article>
-                            <article>
-                                <span>Objetivo</span>
-                                <strong>{selectedPatient.target}</strong>
-                            </article>
-                            <article className="full-row">
-                                <span>Notas</span>
-                                <strong>{selectedPatient.notes || "Sin observaciones"}</strong>
-                            </article>
-                        </div>
+                {/* Directory Scroll List */}
+                <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.5rem", paddingRight: "0.25rem" }}>
+                    {filteredPatients.length ? (
+                        filteredPatients.map((patient) => {
+                            const isSelected = selectedPatientId === patient.id;
+                            return (
+                                <div
+                                    key={patient.id}
+                                    onClick={() => setSelectedPatientId(patient.id)}
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        padding: "0.75rem",
+                                        border: isSelected ? "1px solid var(--primary)" : "1px solid var(--line)",
+                                        borderRadius: "var(--radius-sm)",
+                                        background: isSelected ? "var(--primary-soft)" : "var(--surface)",
+                                        cursor: "pointer",
+                                        transition: "all 0.2s ease",
+                                        boxShadow: isSelected ? "0 2px 8px rgba(22, 163, 74, 0.05)" : "none"
+                                    }}
+                                    className="patient-card-item"
+                                >
+                                    <div>
+                                        <strong style={{ fontSize: "0.85rem", display: "block", color: isSelected ? "var(--primary-strong)" : "var(--text)" }}>
+                                            {patient.name}
+                                        </strong>
+                                        <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginTop: "0.2rem" }}>
+                                            {patient.age} años • {patient.target || "Control"}
+                                        </span>
+                                    </div>
+                                    <div style={{ textAlign: "right" }}>
+                                        <span className="badge" style={{ fontSize: "0.65rem", padding: "0.2rem 0.4rem", background: "var(--surface-soft)" }}>
+                                            {getLastConsultation(patient.id)}
+                                        </span>
+                                        <span style={{ display: "block", fontSize: "0.7rem", color: "var(--muted)", marginTop: "0.2rem" }}>Últ. Consulta</span>
+                                    </div>
+                                </div>
+                            );
+                        })
                     ) : (
-                        <p className="empty-state">Selecciona un paciente para ver su ficha.</p>
+                        <p style={{ color: "var(--muted)", fontSize: "0.85rem", textAlign: "center", marginTop: "2rem", fontStyle: "italic" }}>
+                            No se encontraron pacientes.
+                        </p>
                     )}
                 </div>
             </article>
 
-            <article className="panel">
-                <div className="panel-header">
-                    <h3 className="panel-title">
-                        {editingId ? "Editar paciente" : "Registrar paciente"}
-                    </h3>
-                </div>
-                <form className="form-grid two-columns" onSubmit={handleSubmit}>
-                    <div className="field full">
-                        <label htmlFor="name">Nombre completo</label>
-                        <input
-                            id="name"
-                            name="name"
-                            type="text"
-                            value={form.name}
-                            onChange={handleChange}
-                            placeholder="Ej: Laura Gutierrez"
-                        />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="age">Edad</label>
-                        <input
-                            id="age"
-                            name="age"
-                            type="number"
-                            value={form.age}
-                            onChange={handleChange}
-                            placeholder="28"
-                        />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="weight">Peso (kg)</label>
-                        <input
-                            id="weight"
-                            name="weight"
-                            type="number"
-                            value={form.weight}
-                            onChange={handleChange}
-                            placeholder="67"
-                        />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="height">Altura (cm)</label>
-                        <input
-                            id="height"
-                            name="height"
-                            type="number"
-                            value={form.height}
-                            onChange={handleChange}
-                            placeholder="168"
-                        />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="target">Objetivo</label>
-                        <select id="target" name="target" value={form.target} onChange={handleChange}>
-                            <option>Reducir peso</option>
-                            <option>Ganar masa muscular</option>
-                            <option>Mantenimiento</option>
-                            <option>Control calorico</option>
-                            <option>Plan deportivo</option>
-                        </select>
-                    </div>
-                    <div className="field full">
-                        <label htmlFor="notes">Notas iniciales</label>
-                        <textarea
-                            id="notes"
-                            name="notes"
-                            value={form.notes}
-                            onChange={handleChange}
-                            placeholder="Alergias, habitos y observaciones..."
-                        />
-                    </div>
-                    <div className="action-row full">
-                        <button type="submit" className="btn">
-                            {editingId ? "Guardar cambios" : "Guardar paciente"}
-                        </button>
-                        {editingId ? (
-                            <button
-                                type="button"
-                                className="btn ghost"
-                                onClick={() => {
-                                    resetForm();
-                                    setFeedback("Edicion cancelada.");
-                                }}
-                            >
-                                Cancelar edicion
-                            </button>
-                        ) : null}
-                    </div>
-                </form>
+            {/* Right Pane: Clinical Details Pane */}
+            <article className={`clinical-pane ${!selectedPatient ? "hide-on-mobile" : ""}`} style={{ height: "100%" }}>
+                {selectedPatient && (
+                    <button
+                        className="btn secondary small show-on-mobile"
+                        onClick={() => setSelectedPatientId(null)}
+                        style={{ marginBottom: "0.75rem", display: "flex", gap: "0.25rem", alignItems: "center", fontSize: "0.8rem", width: "fit-content" }}
+                    >
+                        <i className="bi bi-arrow-left" />
+                        Volver al directorio
+                    </button>
+                )}
+                <PatientClinicalPanel
+                    patient={selectedPatient}
+                    onUpdate={handlePatientUpdate}
+                    onDelete={handlePatientDelete}
+                />
             </article>
+
+            <AddPatientModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                onSave={handleAddPatient}
+            />
         </section>
     );
 }

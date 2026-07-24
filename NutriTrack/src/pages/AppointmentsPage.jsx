@@ -1,255 +1,384 @@
 import { useMemo, useState } from "react";
 import { useApp } from "../context/AppContext";
+import { useToast } from "../context/ToastContext";
+import AppointmentModal from "../components/AppointmentModal";
+
+const STATUS_MAP = {
+    pendiente:  { label: "Pendiente",  icon: "bi-clock",            stripe: "var(--warning)" },
+    confirmada: { label: "Confirmada", icon: "bi-check-circle-fill", stripe: "var(--success)" },
+    completada: { label: "Completada", icon: "bi-check2-all",        stripe: "var(--info)" },
+    cancelada:  { label: "Cancelada",  icon: "bi-x-circle-fill",     stripe: "var(--danger)" },
+};
+
+const STATUS_PILL_CLASS = {
+    pendiente:  "pendiente",
+    confirmada: "confirmada",
+    completada: "completada",
+    cancelada:  "cancelada",
+};
+
+const TYPE_LABELS = {
+    consulta:       { label: "Primera Consulta",          icon: "bi-calendar-heart" },
+    seguimiento:    { label: "Control y Seguimiento",     icon: "bi-graph-up" },
+    antropometria:  { label: "Evaluación Antropométrica", icon: "bi-rulers" },
+    planificacion:  { label: "Revisión de Plan",          icon: "bi-journal-check" },
+};
+
+const FILTERS = [
+    { key: "todas",     label: "Todas",     icon: "bi-calendar3" },
+    { key: "pendiente", label: "Pendientes",icon: "bi-clock" },
+    { key: "confirmada",label: "Confirmadas",icon: "bi-check-circle" },
+    { key: "completada",label: "Completadas",icon: "bi-check2-all" },
+    { key: "cancelada", label: "Canceladas", icon: "bi-x-circle" },
+];
 
 function formatDate(dateValue) {
+    if (!dateValue) return "—";
     return new Date(`${dateValue}T00:00:00`).toLocaleDateString("es-CO", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
+        weekday: "short", day: "2-digit", month: "short", year: "numeric",
     });
 }
 
+function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm, onCancel }) {
+    const statusKey = slot.status?.toLowerCase() ?? "pendiente";
+    const si  = STATUS_MAP[statusKey] ?? STATUS_MAP.pendiente;
+    const pillClass = STATUS_PILL_CLASS[statusKey] ?? "pendiente";
+    const typeInfo  = TYPE_LABELS[slot.type] ?? { label: slot.type || "Consulta Nutricional", icon: "bi-calendar-event" };
+
+    const isMutable = statusKey !== "cancelada" && statusKey !== "completada";
+
+    return (
+        <article className="appt-card-v2">
+            {/* Header: fecha + estado */}
+            <div className="appt-card-header">
+                <div className="appt-date-block">
+                    <div className="appt-calendar-icon">
+                        <i className="bi bi-calendar-event-fill" />
+                    </div>
+                    <div className="appt-date-text">
+                        <h4>{formatDate(slot.date)}</h4>
+                        <span>
+                            <i className="bi bi-clock" />
+                            {slot.time}
+                            {slot.duration ? ` · ${slot.duration} min` : ""}
+                        </span>
+                    </div>
+                </div>
+                <span className={`status-pill ${pillClass}`}>
+                    <i className={`bi ${si.icon}`} />
+                    {si.label}
+                </span>
+            </div>
+
+            {/* Details box */}
+            <div className="appt-details-box">
+                {isNutri && (
+                    <div className="appt-patient-row">
+                        <i className="bi bi-person-circle" style={{ color: "var(--primary)" }} />
+                        {patientName}
+                    </div>
+                )}
+                <div className="appt-type-row">
+                    <i className={`bi ${typeInfo.icon}`} />
+                    {typeInfo.label}
+                </div>
+                {slot.reason && (
+                    <div className="appt-reason-row">
+                        <strong>Motivo: </strong>{slot.reason}
+                    </div>
+                )}
+            </div>
+
+            {/* Notes */}
+            {slot.notes && (
+                <p className="appt-notes-row">
+                    <i className="bi bi-chat-left-quote" />
+                    {slot.notes}
+                </p>
+            )}
+
+            {/* Actions */}
+            <div className="appt-actions-row">
+                <button className="btn secondary small" type="button" onClick={onView}>
+                    <i className="bi bi-eye" /> Detalles
+                </button>
+                {isNutri && (
+                    <>
+                        {statusKey === "pendiente" && (
+                            <button className="btn success small" type="button" onClick={onConfirm}>
+                                <i className="bi bi-check-circle" /> Confirmar
+                            </button>
+                        )}
+                        <button className="btn ghost small" type="button" onClick={onEdit}>
+                            <i className="bi bi-pencil" /> Editar
+                        </button>
+                        {isMutable && (
+                            <button className="btn danger small" type="button" onClick={onCancel}>
+                                <i className="bi bi-x-circle" /> Cancelar
+                            </button>
+                        )}
+                    </>
+                )}
+            </div>
+        </article>
+    );
+}
+
 function AppointmentsPage() {
-    const {
-        auth,
-        patients,
-        appointments,
-        addAppointment,
-        updateAppointment,
-        cancelAppointment
-    } = useApp();
+    const { auth, patients, appointments, addAppointment, updateAppointment, cancelAppointment } = useApp();
+    const { showSuccess, showWarning } = useToast();
+    const isNutri = auth.role === "nutriologo";
 
-    const [editingId, setEditingId] = useState(null);
-    const [feedback, setFeedback] = useState("");
-    const [form, setForm] = useState({
-        patientId: auth.patientId ? String(auth.patientId) : String(patients[0]?.id ?? ""),
-        date: "",
-        time: "",
-        status: "Pendiente",
-        notes: ""
-    });
+    const [isModalOpen,    setIsModalOpen]    = useState(false);
+    const [selectedAppt,   setSelectedAppt]   = useState(null);
+    const [modalMode,      setModalMode]      = useState("view");
+    const [activeFilter,   setActiveFilter]   = useState("todas");
+    const [searchQuery,    setSearchQuery]    = useState("");
 
-    const visibleAppointments = useMemo(() => {
-        const source =
-            auth.role === "usuario"
-                ? appointments.filter((item) => item.patientId === auth.patientId)
-                : appointments;
-
+    const allVisible = useMemo(() => {
+        const source = isNutri
+            ? appointments
+            : appointments.filter((a) => Number(a.patientId) === Number(auth.patientId));
         return [...source].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-    }, [appointments, auth.patientId, auth.role]);
+    }, [appointments, auth.patientId, isNutri]);
 
-    const patientName = (patientId) =>
-        patients.find((item) => item.id === patientId)?.name ?? "Paciente";
-
-    const startCreate = (notify = false) => {
-        setEditingId(null);
-        setForm({
-            patientId: auth.role === "usuario" ? String(auth.patientId) : String(patients[0]?.id ?? ""),
-            date: "",
-            time: "",
-            status: "Pendiente",
-            notes: ""
-        });
-        if (notify) {
-            setFeedback(
-                auth.role === "nutriologo"
-                    ? "Formulario listo para agregar cita."
-                    : "Completa la solicitud de cita."
-            );
+    const filteredAppointments = useMemo(() => {
+        let list = allVisible;
+        if (activeFilter !== "todas") {
+            list = list.filter((a) => a.status?.toLowerCase() === activeFilter);
         }
-    };
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter((a) => {
+                const name = patients.find((p) => p.id === a.patientId)?.name ?? "";
+                return (
+                    name.toLowerCase().includes(q) ||
+                    formatDate(a.date).toLowerCase().includes(q) ||
+                    (a.type ?? "").toLowerCase().includes(q)
+                );
+            });
+        }
+        return list;
+    }, [allVisible, activeFilter, searchQuery, patients]);
 
-    const handleChange = (event) => {
-        const { name, value } = event.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
-    };
+    const getPatientName = (id) => patients.find((p) => p.id === id)?.name ?? "Paciente";
 
-    const handleSubmit = (event) => {
-        event.preventDefault();
-        if (!form.patientId || !form.date || !form.time) {
-            setFeedback("Debes completar paciente, fecha y hora.");
+    const upcoming = filteredAppointments.filter(
+        (a) => a.status?.toLowerCase() !== "cancelada" && a.status?.toLowerCase() !== "completada"
+    );
+    const past = filteredAppointments.filter(
+        (a) => a.status?.toLowerCase() === "completada" || a.status?.toLowerCase() === "cancelada"
+    );
+
+    const openModal = (mode, appt = null) => {
+        if (mode === "add" && isNutri && (!patients || patients.length === 0)) {
+            showWarning("Primero registra al menos un paciente para agendar una cita.");
             return;
         }
+        setSelectedAppt(appt);
+        setModalMode(mode);
+        setIsModalOpen(true);
+    };
 
-        const payload = {
-            ...form,
-            patientId: auth.role === "usuario" ? auth.patientId : Number(form.patientId),
-            status: auth.role === "usuario" ? "Pendiente" : form.status
-        };
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedAppt(null);
+        setModalMode("view");
+    };
 
-        if (editingId) {
-            updateAppointment(editingId, payload);
-            setFeedback("Cita modificada correctamente.");
+    const handleSave = (data) => {
+        if (modalMode === "add") {
+            addAppointment(data);
+            showSuccess("Cita agendada correctamente.");
         } else {
-            addAppointment(payload);
-            setFeedback(
-                auth.role === "nutriologo"
-                    ? "Cita registrada correctamente."
-                    : "Solicitud enviada correctamente."
-            );
+            updateAppointment(data.id, data);
+            showSuccess("Cita actualizada correctamente.");
         }
-        startCreate();
     };
 
-    const handleEdit = (appointment) => {
-        setEditingId(appointment.id);
-        setForm({
-            patientId: String(appointment.patientId),
-            date: appointment.date,
-            time: appointment.time,
-            status: appointment.status,
-            notes: appointment.notes ?? ""
-        });
-        setFeedback("Editando cita seleccionada.");
-    };
-
-    const handleCancel = (appointment) => {
-        if (appointment.status === "Cancelada") {
-            setFeedback("La cita ya esta cancelada.");
-            return;
-        }
-        cancelAppointment(appointment.id);
-        setFeedback("Cita cancelada correctamente.");
+    const handleDelete = (id) => {
+        cancelAppointment(id);
+        showWarning("Cita cancelada.");
+        closeModal();
     };
 
     return (
-        <section className="split-layout">
+        <section className="single-panel">
             <article className="panel">
+                {/* ── Header ── */}
                 <div className="panel-header">
                     <div>
                         <h3 className="panel-title">
-                            {auth.role === "nutriologo" ? "Agenda de citas" : "Mis citas"}
+                            <i className="bi bi-calendar3-event-fill" style={{ color: "var(--primary)", marginRight: "0.5rem" }} />
+                            {isNutri ? "Agenda de citas" : "Mis citas"}
                         </h3>
                         <p className="panel-subtitle">
-                            {auth.role === "nutriologo"
-                                ? "Administra, modifica o cancela citas por paciente."
-                                : "Consulta tus citas y solicita nuevas fechas."}
+                            {isNutri
+                                ? "Administra, agenda y gestiona todas las citas con tus pacientes."
+                                : "Consulta las citas agendadas por tu nutricionista."}
                         </p>
                     </div>
-                    <button className="btn" type="button" onClick={() => startCreate(true)}>
-                        <i className="bi bi-calendar-plus" />
-                        {auth.role === "nutriologo" ? "Agregar cita" : "Solicitar cita"}
-                    </button>
+                    {isNutri && (
+                        <button className="btn" type="button" onClick={() => openModal("add")}>
+                            <i className="bi bi-calendar-plus" />
+                            Agregar cita
+                        </button>
+                    )}
                 </div>
 
-                {feedback ? <p className="alert-inline success">{feedback}</p> : null}
-
-                <div className="calendar-grid">
-                    {visibleAppointments.length ? (
-                        visibleAppointments.map((slot) => (
-                            <article className="slot-card" key={slot.id}>
-                                <h4>{formatDate(slot.date)}</h4>
-                                <p>{slot.time}</p>
-                                <p>{patientName(slot.patientId)}</p>
-                                <span className={`status-pill ${slot.status.toLowerCase()}`}>
-                                    {slot.status}
-                                </span>
-                                <p className="slot-note">{slot.notes || "Sin observaciones"}</p>
-                                <div className="slot-actions">
-                                    <button
-                                        className="btn secondary"
-                                        type="button"
-                                        onClick={() => handleEdit(slot)}
-                                    >
-                                        Modificar
-                                    </button>
-                                    <button
-                                        className="btn danger"
-                                        type="button"
-                                        onClick={() => handleCancel(slot)}
-                                    >
-                                        Cancelar
-                                    </button>
+                {/* ── Search + Filter bar ── */}
+                {allVisible.length > 0 && (
+                    <div style={{ marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        {/* Search input */}
+                        {isNutri && (
+                            <div className="field" style={{ maxWidth: "320px", margin: 0 }}>
+                                <div style={{ position: "relative" }}>
+                                    <i className="bi bi-search" style={{
+                                        position: "absolute", left: "0.75rem", top: "50%",
+                                        transform: "translateY(-50%)", color: "var(--muted)", fontSize: "0.85rem"
+                                    }} />
+                                    <input
+                                        type="search"
+                                        placeholder="Buscar paciente, fecha..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        style={{ paddingLeft: "2.2rem" }}
+                                    />
                                 </div>
-                            </article>
-                        ))
-                    ) : (
-                        <p className="empty-state">No hay citas registradas.</p>
-                    )}
-                </div>
-            </article>
+                            </div>
+                        )}
 
-            <article className="panel">
-                <div className="panel-header">
-                    <h3 className="panel-title">
-                        {editingId ? "Modificar cita" : auth.role === "nutriologo" ? "Crear cita" : "Nueva solicitud"}
-                    </h3>
-                </div>
-                <form className="form-grid" onSubmit={handleSubmit}>
-                    {auth.role === "nutriologo" ? (
-                        <div className="field">
-                            <label htmlFor="patientId">Paciente</label>
-                            <select
-                                id="patientId"
-                                name="patientId"
-                                value={form.patientId}
-                                onChange={handleChange}
-                            >
-                                {patients.map((patient) => (
-                                    <option key={patient.id} value={patient.id}>
-                                        {patient.name}
-                                    </option>
-                                ))}
-                            </select>
+                        {/* Filter pills */}
+                        <div className="filter-pills-bar">
+                            {FILTERS.map((f) => {
+                                const count = f.key === "todas"
+                                    ? allVisible.length
+                                    : allVisible.filter((a) => a.status?.toLowerCase() === f.key).length;
+                                return (
+                                    <button
+                                        key={f.key}
+                                        type="button"
+                                        className={`filter-pill${activeFilter === f.key ? " active" : ""}`}
+                                        onClick={() => setActiveFilter(f.key)}
+                                    >
+                                        <i className={`bi ${f.icon}`} />
+                                        {f.label}
+                                        {count > 0 && (
+                                            <span style={{
+                                                background: activeFilter === f.key ? "rgba(255,255,255,0.25)" : "var(--surface-elevated)",
+                                                color: activeFilter === f.key ? "#fff" : "var(--muted)",
+                                                borderRadius: "999px",
+                                                padding: "0 0.4rem",
+                                                fontSize: "0.7rem",
+                                                fontWeight: 800,
+                                                minWidth: "1.2rem",
+                                                textAlign: "center",
+                                                lineHeight: "1.5",
+                                            }}>
+                                                {count}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
-                    ) : (
-                        <div className="field">
-                            <label>Paciente</label>
-                            <input value={auth.fullName} readOnly />
-                        </div>
-                    )}
+                    </div>
+                )}
 
-                    <div className="field">
-                        <label htmlFor="date">Fecha</label>
-                        <input id="date" name="date" type="date" value={form.date} onChange={handleChange} />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="time">Hora</label>
-                        <input id="time" name="time" type="time" value={form.time} onChange={handleChange} />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="status">Estado</label>
-                        {auth.role === "nutriologo" ? (
-                            <select id="status" name="status" value={form.status} onChange={handleChange}>
-                                <option>Pendiente</option>
-                                <option>Confirmada</option>
-                                <option>Completada</option>
-                                <option>Cancelada</option>
-                            </select>
-                        ) : (
-                            <input value="Pendiente" readOnly />
+                {/* ── Upcoming ── */}
+                {upcoming.length > 0 && (
+                    <>
+                        <p className="appt-section-label">
+                            <i className="bi bi-calendar3-event-fill" />
+                            {isNutri ? "Próximas y activas" : "Mis próximas citas"}
+                            <span className="appt-count">{upcoming.length}</span>
+                        </p>
+                        <div className="appt-grid" style={{ marginBottom: past.length > 0 ? "1.75rem" : 0 }}>
+                            {upcoming.map((slot) => (
+                                <AppointmentCard
+                                    key={slot.id}
+                                    slot={slot}
+                                    isNutri={isNutri}
+                                    patientName={getPatientName(slot.patientId)}
+                                    onView={() => openModal("view", slot)}
+                                    onEdit={() => openModal("edit", slot)}
+                                    onConfirm={() => {
+                                        updateAppointment(slot.id, { ...slot, status: "Confirmada" });
+                                        showSuccess("Cita confirmada.");
+                                    }}
+                                    onCancel={() => handleDelete(slot.id)}
+                                />
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                {/* ── History ── */}
+                {past.length > 0 && (
+                    <>
+                        <p className="appt-section-label">
+                            <i className="bi bi-clock-history" />
+                            Historial
+                            <span className="appt-count">{past.length}</span>
+                        </p>
+                        <div className="appt-grid">
+                            {past.map((slot) => (
+                                <AppointmentCard
+                                    key={slot.id}
+                                    slot={slot}
+                                    isNutri={isNutri}
+                                    patientName={getPatientName(slot.patientId)}
+                                    onView={() => openModal("view", slot)}
+                                    onEdit={() => openModal("edit", slot)}
+                                    onConfirm={() => {}}
+                                    onCancel={() => handleDelete(slot.id)}
+                                />
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                {/* ── Empty state ── */}
+                {filteredAppointments.length === 0 && (
+                    <div className="empty-state-block">
+                        <div className="empty-state-icon">
+                            <i className="bi bi-calendar3-event" />
+                        </div>
+                        <h4>
+                            {activeFilter !== "todas"
+                                ? `Sin citas ${FILTERS.find((f) => f.key === activeFilter)?.label.toLowerCase()}`
+                                : "No hay citas registradas"}
+                        </h4>
+                        <p>
+                            {isNutri
+                                ? "Agrega la primera cita para comenzar a gestionar tu agenda."
+                                : "Aquí aparecerán tus citas agendadas por tu nutricionista."}
+                        </p>
+                        {isNutri && activeFilter === "todas" && (
+                            <button className="btn" onClick={() => openModal("add")}>
+                                <i className="bi bi-calendar-plus" />
+                                Agregar primera cita
+                            </button>
+                        )}
+                        {activeFilter !== "todas" && (
+                            <button className="btn secondary" onClick={() => setActiveFilter("todas")}>
+                                <i className="bi bi-x-circle" />
+                                Ver todas
+                            </button>
                         )}
                     </div>
-                    <div className="field">
-                        <label htmlFor="notes">Observaciones</label>
-                        <textarea
-                            id="notes"
-                            name="notes"
-                            value={form.notes}
-                            onChange={handleChange}
-                            placeholder="Detalle de la cita"
-                        />
-                    </div>
-
-                    <div className="action-row">
-                        <button type="submit" className="btn">
-                            {editingId ? "Guardar cambios" : auth.role === "nutriologo" ? "Crear cita" : "Enviar solicitud"}
-                        </button>
-                        {editingId ? (
-                            <button
-                                type="button"
-                                className="btn ghost"
-                                onClick={() => {
-                                    startCreate();
-                                    setFeedback("Edicion cancelada.");
-                                }}
-                            >
-                                Cancelar edicion
-                            </button>
-                        ) : null}
-                    </div>
-                </form>
+                )}
             </article>
+
+            <AppointmentModal
+                appointment={selectedAppt}
+                patients={patients}
+                isOpen={isModalOpen}
+                onClose={closeModal}
+                onSave={handleSave}
+                onDelete={isNutri ? handleDelete : undefined}
+                mode={isNutri ? modalMode : "view"}
+            />
         </section>
     );
 }

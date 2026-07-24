@@ -1,7 +1,14 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { navByRole, roleLabels, screenTitles } from "../data/mockData";
+import { navByRole, roleLabels, screenTitlesByRole } from "../data/mockData";
 import { useApp } from "../context/AppContext";
+
+function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Buenos días";
+    if (hour < 18) return "Buenas tardes";
+    return "Buenas noches";
+}
 
 function AppLayout({ onLogout, children }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -10,88 +17,112 @@ function AppLayout({ onLogout, children }) {
     const { auth } = useApp();
     const userMenuRef = useRef(null);
 
+    const getFirstName = (fullName) => {
+        if (!fullName) return "Usuario";
+        const parts = fullName.split(" ");
+        if (parts[0] === "Dra." || parts[0] === "Dr.") {
+            return parts.slice(0, 2).join(" ");
+        }
+        return parts[0];
+    };
+    const firstName = getFirstName(auth.fullName);
+
     const screenTitle = useMemo(
-        () => screenTitles[location.pathname] ?? "NutriTrack",
-        [location.pathname]
+        () => (screenTitlesByRole[auth.role] ?? screenTitlesByRole.nutriologo)[location.pathname] ?? "NutriTrack",
+        [location.pathname, auth.role]
     );
     const navItems = navByRole[auth.role] ?? [];
+    const isNutri = auth.role === "nutriologo";
 
     const handleLogout = () => {
         setShowUserMenu(false);
         onLogout();
     };
 
-    // Close user menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
                 setShowUserMenu(false);
             }
         };
-
-        if (showUserMenu) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
+        if (showUserMenu) document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [showUserMenu]);
 
-    // Close sidebar on route change
     useEffect(() => {
         setIsSidebarOpen(false);
     }, [location]);
 
+    const initials = auth.fullName
+        ?.split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase())
+        .join("") || "?";
+
     return (
-        <div className="app-shell">
+        <div className={`app-shell ${auth.role === "usuario" ? "patient-role" : "nutritionist-role"}`}>
+            {/* ── Sidebar ── */}
             <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
+                {/* Brand */}
                 <div className="brand">
                     <div className="brand-logo">
                         <i className="bi bi-heart-pulse-fill" />
                     </div>
                     <div>
                         <h1>NutriTrack</h1>
-                        <p>Sistema de gestion nutricional</p>
+                        <p>{isNutri ? "Panel profesional" : "Mi salud"}</p>
                     </div>
                 </div>
+
+                {/* Nav */}
                 <nav className="menu">
                     {navItems.map((item) => (
                         <NavLink
                             key={item.path}
                             to={item.path}
                             onClick={() => setIsSidebarOpen(false)}
-                            className={({ isActive }) =>
-                                `menu-item ${isActive ? "active" : ""}`
-                            }
+                            className={({ isActive }) => `menu-item ${isActive ? "active" : ""}`}
                         >
                             <i className={`bi ${item.icon}`} />
                             <span>{item.label}</span>
                         </NavLink>
                     ))}
                 </nav>
+
+                {/* Sidebar footer */}
                 <div className="sidebar-footer">
-                    <div className="user-info">
-                        <div className="user-avatar">
-                            <i className="bi bi-person-circle" />
+                    <div className="sidebar-user">
+                        <div className={`sidebar-avatar ${isNutri ? "nutri" : "patient"}`}>
+                            {initials}
                         </div>
-                        <div className="user-details">
-                            <p className="user-role">{roleLabels[auth.role] ?? "Sesion activa"}</p>
+                        <div className="sidebar-user-info">
                             <strong className="user-name">{auth.fullName || "NutriTrack"}</strong>
+                            <span className="user-role">{roleLabels[auth.role] ?? "Usuario"}</span>
                         </div>
                     </div>
+                    <button
+                        onClick={handleLogout}
+                        className="sidebar-logout-btn"
+                        type="button"
+                    >
+                        <i className="bi bi-box-arrow-right" />
+                        <span>Cerrar sesión</span>
+                    </button>
                 </div>
             </aside>
 
-            {isSidebarOpen ? (
+            {/* Overlay móvil */}
+            {isSidebarOpen && (
                 <button
                     className="overlay"
                     type="button"
-                    aria-label="Cerrar menu"
+                    aria-label="Cerrar menú"
                     onClick={() => setIsSidebarOpen(false)}
                 />
-            ) : null}
+            )}
 
+            {/* ── Panel principal ── */}
             <section className="main-panel">
                 <header className="topbar">
                     <div className="topbar-left">
@@ -99,13 +130,15 @@ function AppLayout({ onLogout, children }) {
                             type="button"
                             className="menu-toggle"
                             onClick={() => setIsSidebarOpen(true)}
-                            aria-label="Abrir menu"
+                            aria-label="Abrir menú"
                         >
                             <i className="bi bi-list" />
                         </button>
                         <div className="page-info">
                             <h2>{screenTitle}</h2>
-                            <p>Bienvenido de nuevo</p>
+                            <p>
+                                {getGreeting()}, <strong>{firstName}</strong>
+                            </p>
                         </div>
                     </div>
                     <div className="topbar-right">
@@ -113,20 +146,21 @@ function AppLayout({ onLogout, children }) {
                             <button
                                 className="user-menu-trigger"
                                 onClick={() => setShowUserMenu(!showUserMenu)}
-                                aria-label="Menu de usuario"
+                                aria-label="Menú de usuario"
                                 aria-expanded={showUserMenu}
                             >
-                                <div className="user-avatar small">
-                                    <i className="bi bi-person-circle" />
+                                <div className={`topbar-avatar ${isNutri ? "nutri" : "patient"}`}>
+                                    {initials}
                                 </div>
-                                <span className="user-name-short">{auth.fullName?.split(' ')[0] || "Usuario"}</span>
-                                <i className="bi bi-chevron-down" />
+                                <span className="user-name-short">{firstName}</span>
+                                <i className={`bi bi-chevron-${showUserMenu ? "up" : "down"}`} />
                             </button>
+
                             {showUserMenu && (
-                                <div className="user-menu-dropdown">
+                                <div className="user-menu-dropdown" role="menu">
                                     <div className="user-menu-header">
-                                        <div className="user-avatar">
-                                            <i className="bi bi-person-circle" />
+                                        <div className={`topbar-avatar ${isNutri ? "nutri" : "patient"}`}>
+                                            {initials}
                                         </div>
                                         <div className="user-details">
                                             <strong>{auth.fullName || "NutriTrack"}</strong>
@@ -134,22 +168,36 @@ function AppLayout({ onLogout, children }) {
                                         </div>
                                     </div>
                                     <div className="user-menu-actions">
-                                        <button className="menu-dropdown-item">
+                                        <NavLink
+                                            to="/perfil"
+                                            className="menu-dropdown-item"
+                                            onClick={() => setShowUserMenu(false)}
+                                            style={{ textDecoration: "none", color: "inherit" }}
+                                            role="menuitem"
+                                        >
                                             <i className="bi bi-person" />
                                             Mi perfil
-                                        </button>
-                                        <button className="menu-dropdown-item">
-                                            <i className="bi bi-gear" />
-                                            Configuracion
-                                        </button>
-                                        <button className="menu-dropdown-item">
-                                            <i className="bi bi-question-circle" />
-                                            Ayuda
-                                        </button>
+                                        </NavLink>
+                                        {isNutri && (
+                                            <NavLink
+                                                to="/configuracion"
+                                                className="menu-dropdown-item"
+                                                onClick={() => setShowUserMenu(false)}
+                                                style={{ textDecoration: "none", color: "inherit" }}
+                                                role="menuitem"
+                                            >
+                                                <i className="bi bi-gear" />
+                                                Configuración
+                                            </NavLink>
+                                        )}
                                         <div className="menu-divider" />
-                                        <button className="menu-dropdown-item danger" onClick={handleLogout}>
+                                        <button
+                                            className="menu-dropdown-item danger"
+                                            onClick={handleLogout}
+                                            role="menuitem"
+                                        >
                                             <i className="bi bi-box-arrow-right" />
-                                            Cerrar sesion
+                                            Cerrar sesión
                                         </button>
                                     </div>
                                 </div>
@@ -157,8 +205,23 @@ function AppLayout({ onLogout, children }) {
                         </div>
                     </div>
                 </header>
+
                 <main className="screen-content">{children}</main>
             </section>
+
+            {/* Bottom Nav (móviles) */}
+            <nav className="bottom-nav" aria-label="Navegación principal">
+                {navItems.map((item) => (
+                    <NavLink
+                        key={item.path}
+                        to={item.path}
+                        className={({ isActive }) => `bottom-nav-item ${isActive ? "active" : ""}`}
+                    >
+                        <i className={`bi ${item.icon}`} />
+                        <span>{item.label}</span>
+                    </NavLink>
+                ))}
+            </nav>
         </div>
     );
 }

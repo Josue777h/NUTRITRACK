@@ -2,235 +2,327 @@ import { useMemo, useState } from "react";
 import BarChart from "../components/charts/BarChart";
 import LineChart from "../components/charts/LineChart";
 import { useApp } from "../context/AppContext";
+import { useToast } from "../context/ToastContext";
+import ReportModal from "../components/ReportModal";
 
-function formatMonth(dateValue) {
+function formatDate(dateValue) {
     return new Date(`${dateValue}T00:00:00`).toLocaleDateString("es-CO", {
-        month: "short"
+        day: "2-digit", month: "short", year: "numeric"
     });
+}
+function formatMonth(dateValue) {
+    return new Date(`${dateValue}T00:00:00`).toLocaleDateString("es-CO", { month: "short" });
 }
 
 function ReportsPage() {
-    const { auth, patients, reports, addReport } = useApp();
+    const { auth, patients, reports, addReport, updateReport, removeReport } = useApp();
+    const { showSuccess, showWarning } = useToast();
+    const isNutri = auth.role === "nutriologo";
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedReport, setSelectedReport] = useState(null);
+    const [modalMode, setModalMode] = useState("view");
     const [selectedPatientId, setSelectedPatientId] = useState(
-        auth.role === "usuario" ? String(auth.patientId) : String(patients[0]?.id ?? "")
+        isNutri ? String(patients[0]?.id ?? "") : String(auth.patientId)
     );
-    const [feedback, setFeedback] = useState("");
-    const [form, setForm] = useState({
-        date: "",
-        weight: "",
-        bmi: "",
-        calories: ""
-    });
 
-    const patientId = auth.role === "usuario" ? auth.patientId : Number(selectedPatientId);
-    const patient = patients.find((item) => item.id === patientId);
+    const patientId = isNutri ? Number(selectedPatientId) : Number(auth.patientId);
+    const patient   = patients.find((p) => Number(p.id) === patientId);
 
-    const patientReports = useMemo(() => {
-        return reports
-            .filter((item) => item.patientId === patientId)
-            .sort((a, b) => a.date.localeCompare(b.date));
-    }, [patientId, reports]);
+    const patientReports = useMemo(() =>
+        reports
+            .filter((r) => Number(r.patientId) === patientId)
+            .sort((a, b) => a.date.localeCompare(b.date)),
+        [patientId, reports]
+    );
 
-    const latest = patientReports[patientReports.length - 1];
-    const labels = patientReports.map((item) => formatMonth(item.date));
-    const weights = patientReports.map((item) => item.weight);
-    const bmiValues = patientReports.map((item) => item.bmi);
-    const calories = patientReports.map((item) => item.calories);
+    const latest  = patientReports[patientReports.length - 1];
+    const labels  = patientReports.map((r) => formatMonth(r.date));
+    const weights = patientReports.map((r) => Number(r.weight  || r.metrics?.weight  || 70));
+    const bmiVals = patientReports.map((r) => Number(r.bmi     || r.metrics?.bmi     || 24));
+    const calVals = patientReports.map((r) => Number(r.calories|| r.metrics?.calories|| 2000));
 
-    const handleFormChange = (event) => {
-        const { name, value } = event.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+    const openModal = (mode, report = null) => {
+        setSelectedReport(report);
+        setModalMode(mode);
+        setIsModalOpen(true);
+    };
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedReport(null);
+        setModalMode("view");
     };
 
-    const handleAddReport = (event) => {
-        event.preventDefault();
-        if (!patientId || !form.date || !form.weight || !form.bmi || !form.calories) {
-            setFeedback("Completa todos los campos para registrar seguimiento.");
-            return;
-        }
-        addReport({
-            patientId,
-            date: form.date,
-            weight: form.weight,
-            bmi: form.bmi,
-            calories: form.calories
-        });
-        setForm({ date: "", weight: "", bmi: "", calories: "" });
-        setFeedback("Seguimiento registrado correctamente.");
+    const handleSave = (data) => {
+        const flat = {
+            ...data,
+            weight:   Number(data.weight   || data.metrics?.weight   || 70),
+            bmi:      Number(data.bmi      || data.metrics?.bmi      || 24),
+            calories: Number(data.calories || data.metrics?.calories || 2000)
+        };
+        if (modalMode === "add") { addReport(flat);             showSuccess("Reporte creado."); }
+        else                     { updateReport(data.id, flat); showSuccess("Reporte actualizado."); }
     };
+
+    const handleDelete = (id) => { removeReport(id); showWarning("Reporte eliminado."); closeModal(); };
 
     const exportCsv = () => {
-        if (!patientReports.length) {
-            setFeedback("No hay datos para exportar.");
-            return;
-        }
-
-        const header = "fecha,peso,imc,calorias";
-        const rows = patientReports.map((item) =>
-            [item.date, item.weight, item.bmi, item.calories].join(",")
-        );
-        const csvContent = [header, ...rows].join("\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", `reporte_${(patient?.name ?? "paciente").replaceAll(" ", "_")}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        setFeedback("Reporte exportado en CSV.");
+        if (!patientReports.length) { showWarning("No hay datos para exportar."); return; }
+        const rows = patientReports.map((r) => [r.date, r.weight, r.bmi, r.calories].join(","));
+        const csv  = ["fecha,peso,imc,calorias", ...rows].join("\n");
+        const a    = Object.assign(document.createElement("a"), {
+            href: URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })),
+            download: `reporte_${(patient?.name ?? "paciente").replaceAll(" ", "_")}.csv`
+        });
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showSuccess("Reporte exportado en CSV.");
     };
 
+    /* ── Mensaje motivacional para paciente ── */
+    const motivationalMsg = () => {
+        if (!latest) return null;
+        const bmi = Number(latest.bmi || 24);
+        if (bmi < 18.5) return { icon: "bi-exclamation-triangle-fill", color: "warning", text: "Tu IMC está bajo. Sigue tu plan para mejorar tu nutrición." };
+        if (bmi < 25)   return { icon: "bi-emoji-smile-fill",          color: "success", text: "¡Excelente! Tu IMC está en rango saludable. Sigue así." };
+        if (bmi < 30)   return { icon: "bi-graph-down-arrow",          color: "warning", text: "Tu IMC está un poco elevado. Tu nutriólogo te ayudará a mejorarlo." };
+        return             { icon: "bi-heart-fill",                    color: "danger",  text: "Recuerda seguir tu plan. Pequeños cambios generan grandes resultados." };
+    };
+    const msg = motivationalMsg();
+
     return (
-        <section className="split-layout">
+        <section className="single-panel">
             <article className="panel">
+                {/* ── Header ── */}
                 <div className="panel-header">
                     <div>
-                        <h3 className="panel-title">Evolucion nutricional</h3>
+                        <h3 className="panel-title">
+                            {isNutri ? "Evolución nutricional" : "Mi progreso"}
+                        </h3>
                         <p className="panel-subtitle">
-                            Graficas dinamicas de peso, IMC y calorias por paciente.
+                            {isNutri
+                                ? "Gráficas de peso, IMC y calorías por paciente."
+                                : "Así ha evolucionado tu salud desde que empezaste."}
                         </p>
                     </div>
-                    <div className="report-actions">
+                    <div className="report-actions" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                         <button className="btn secondary" type="button" onClick={() => window.print()}>
                             <i className="bi bi-printer" />
-                            Imprimir
+                            Imprimir PDF
                         </button>
-                        <button className="btn" type="button" onClick={exportCsv}>
+                        <button className="btn secondary" type="button" onClick={exportCsv}>
                             <i className="bi bi-download" />
-                            Exportar CSV
+                            Descargar Excel/CSV
                         </button>
+                        {isNutri && (
+                            <button className="btn" type="button" onClick={() => openModal("add")}>
+                                <i className="bi bi-plus-circle" />
+                                Nuevo Reporte
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {auth.role === "nutriologo" ? (
-                    <div className="field compact-field">
-                        <label htmlFor="selectedPatientId">Paciente para analisis</label>
+                {/* Selector de paciente (solo nutriólogo) */}
+                {isNutri && (
+                    <div className="field" style={{ maxWidth: "320px" }}>
+                        <label htmlFor="patientSelect">
+                            <i className="bi bi-person" style={{ marginRight: "0.4rem" }} />
+                            Paciente
+                        </label>
                         <select
-                            id="selectedPatientId"
+                            id="patientSelect"
                             value={selectedPatientId}
-                            onChange={(event) => setSelectedPatientId(event.target.value)}
+                            onChange={(e) => setSelectedPatientId(e.target.value)}
                         >
-                            {patients.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                    {item.name}
-                                </option>
+                            {patients.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
                         </select>
                     </div>
-                ) : null}
+                )}
 
-                <div className="report-grid">
-                    <article className="chart-box">
-                        <h4>Peso (kg)</h4>
-                        <p>Ultimos controles</p>
-                        {weights.length ? (
-                            <LineChart values={weights} color="#2f7f73" />
-                        ) : (
-                            <p className="empty-state">Sin registros</p>
-                        )}
-                    </article>
-                    <article className="chart-box">
-                        <h4>IMC</h4>
-                        <p>Tendencia mensual</p>
-                        {bmiValues.length ? (
-                            <BarChart labels={labels} values={bmiValues} color="#4a7898" />
-                        ) : (
-                            <p className="empty-state">Sin registros</p>
-                        )}
-                    </article>
-                    <article className="chart-box">
-                        <h4>Calorias promedio</h4>
-                        <p>Consumo reportado</p>
-                        {calories.length ? (
-                            <LineChart values={calories} color="#2e5f8b" />
-                        ) : (
-                            <p className="empty-state">Sin registros</p>
-                        )}
-                    </article>
-                </div>
+                {/* Banner motivacional solo para paciente */}
+                {!isNutri && msg && (
+                    <div className={`report-banner report-banner-${msg.color}`}>
+                        <i className={`bi ${msg.icon}`} />
+                        <p>{msg.text}</p>
+                    </div>
+                )}
 
-                <div className="details-box">
-                    <h4>Resumen actual</h4>
-                    {latest ? (
-                        <div className="details-grid">
-                            <article>
-                                <span>Paciente</span>
-                                <strong>{patient?.name}</strong>
-                            </article>
-                            <article>
-                                <span>Ultimo peso</span>
-                                <strong>{latest.weight} kg</strong>
-                            </article>
-                            <article>
-                                <span>Ultimo IMC</span>
-                                <strong>{latest.bmi}</strong>
-                            </article>
-                            <article>
-                                <span>Calorias</span>
-                                <strong>{latest.calories} kcal</strong>
-                            </article>
+                {patient ? (
+                    <>
+                        {/* ── Estadísticas rápidas ── */}
+                        {latest && (
+                            <div className="rpt-stats-row">
+                                <div className="rpt-stat">
+                                    <i className="bi bi-speedometer2" />
+                                    <div>
+                                        <span>Último peso</span>
+                                        <strong>{latest.weight || latest.metrics?.weight || "—"} kg</strong>
+                                    </div>
+                                </div>
+                                <div className="rpt-stat">
+                                    <i className="bi bi-activity" />
+                                    <div>
+                                        <span>IMC</span>
+                                        <strong>{latest.bmi || latest.metrics?.bmi || "—"}</strong>
+                                    </div>
+                                </div>
+                                <div className="rpt-stat">
+                                    <i className="bi bi-fire" />
+                                    <div>
+                                        <span>Calorías</span>
+                                        <strong>{latest.calories || latest.metrics?.calories || "—"} kcal</strong>
+                                    </div>
+                                </div>
+                                <div className="rpt-stat">
+                                    <i className="bi bi-calendar3" />
+                                    <div>
+                                        <span>Último reporte</span>
+                                        <strong>{formatDate(latest.date)}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Gráficas ── */}
+                        <div className="report-grid">
+                            <div className="stat-card">
+                                <h4><i className="bi bi-speedometer2" style={{ marginRight: "0.4rem", color: "var(--secondary)" }} />Peso</h4>
+                                {patientReports.length
+                                    ? <LineChart values={weights} color="#2563eb" />
+                                    : <p className="empty-state">Sin datos de peso</p>}
+                            </div>
+                            <div className="stat-card">
+                                <h4><i className="bi bi-activity" style={{ marginRight: "0.4rem", color: "var(--primary)" }} />IMC</h4>
+                                {patientReports.length
+                                    ? <LineChart values={bmiVals} color="#16a34a" />
+                                    : <p className="empty-state">Sin datos de IMC</p>}
+                            </div>
+                            <div className="stat-card">
+                                <h4><i className="bi bi-fire" style={{ marginRight: "0.4rem", color: "var(--warning)" }} />Calorías</h4>
+                                {patientReports.length
+                                    ? <BarChart labels={labels} values={calVals} color="#f59e0b" />
+                                    : <p className="empty-state">Sin datos de calorías</p>}
+                            </div>
                         </div>
-                    ) : (
-                        <p className="empty-state">No hay datos para este paciente.</p>
-                    )}
-                </div>
+
+                        {/* ── Historial de reportes ── */}
+                        <div className="panel">
+                            <div className="panel-header">
+                                <h4 className="panel-title">Historial de reportes</h4>
+                                {/* El paciente puede descargar solo si hay datos */}
+                                {!isNutri && patientReports.length > 0 && (
+                                    <button className="btn secondary small" onClick={exportCsv}>
+                                        <i className="bi bi-download" />
+                                        Descargar CSV
+                                    </button>
+                                )}
+                            </div>
+                            <div className="table-wrap">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Peso</th>
+                                            <th>IMC</th>
+                                            <th>Calorías</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {patientReports.length ? (
+                                            patientReports.map((report) => (
+                                                <tr key={report.id}>
+                                                    <td>{formatDate(report.date)}</td>
+                                                    <td>{report.weight || report.metrics?.weight || 70} kg</td>
+                                                    <td>{report.bmi || report.metrics?.bmi || 24}</td>
+                                                    <td>{report.calories || report.metrics?.calories || 2000} kcal</td>
+                                                    <td>
+                                                        <div className="table-actions">
+                                                            <button
+                                                                className="btn secondary small"
+                                                                type="button"
+                                                                onClick={() => openModal("view", report)}
+                                                            >
+                                                                <i className="bi bi-eye" />
+                                                                Ver
+                                                            </button>
+                                                            {/* Editar y eliminar solo nutriólogo */}
+                                                            {isNutri && (
+                                                                <>
+                                                                    <button
+                                                                        className="btn ghost small"
+                                                                        type="button"
+                                                                        onClick={() => openModal("edit", report)}
+                                                                    >
+                                                                        <i className="bi bi-pencil" />
+                                                                        Editar
+                                                                    </button>
+                                                                    <button
+                                                                        className="btn danger small"
+                                                                        type="button"
+                                                                        onClick={() => handleDelete(report.id)}
+                                                                    >
+                                                                        <i className="bi bi-trash" />
+                                                                        Eliminar
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="5">
+                                                    <div className="empty-state-block">
+                                                        <div className="empty-state-icon">
+                                                            <i className="bi bi-clipboard-data" />
+                                                        </div>
+                                                        <h4>Sin reportes aún</h4>
+                                                        <p>
+                                                            {isNutri
+                                                                ? "Crea el primer reporte para este paciente."
+                                                                : "Tu nutriólogo registrará aquí tu evolución."}
+                                                        </p>
+                                                        {isNutri && (
+                                                            <button className="btn" onClick={() => openModal("add")}>
+                                                                <i className="bi bi-plus-circle" />
+                                                                Crear reporte
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="empty-state-block">
+                        <div className="empty-state-icon">
+                            <i className="bi bi-person-x" />
+                        </div>
+                        <h4>Sin paciente seleccionado</h4>
+                        <p>Selecciona un paciente para ver su evolución nutricional.</p>
+                    </div>
+                )}
             </article>
 
-            <article className="panel">
-                <div className="panel-header">
-                    <h3 className="panel-title">
-                        {auth.role === "nutriologo" ? "Registrar seguimiento" : "Registrar mi avance"}
-                    </h3>
-                </div>
-                {feedback ? <p className="alert-inline success">{feedback}</p> : null}
-                <form className="form-grid" onSubmit={handleAddReport}>
-                    <div className="field">
-                        <label>Paciente</label>
-                        <input value={patient?.name ?? "Sin paciente"} readOnly />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="date">Fecha</label>
-                        <input id="date" name="date" type="date" value={form.date} onChange={handleFormChange} />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="weight">Peso (kg)</label>
-                        <input
-                            id="weight"
-                            name="weight"
-                            type="number"
-                            step="0.1"
-                            value={form.weight}
-                            onChange={handleFormChange}
-                        />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="bmi">IMC</label>
-                        <input
-                            id="bmi"
-                            name="bmi"
-                            type="number"
-                            step="0.1"
-                            value={form.bmi}
-                            onChange={handleFormChange}
-                        />
-                    </div>
-                    <div className="field">
-                        <label htmlFor="calories">Calorias (kcal)</label>
-                        <input
-                            id="calories"
-                            name="calories"
-                            type="number"
-                            value={form.calories}
-                            onChange={handleFormChange}
-                        />
-                    </div>
-                    <button type="submit" className="btn">
-                        Guardar seguimiento
-                    </button>
-                </form>
-            </article>
+            <ReportModal
+                report={selectedReport}
+                patients={patients}
+                isOpen={isModalOpen}
+                onClose={closeModal}
+                onSave={handleSave}
+                onDelete={isNutri ? handleDelete : undefined}
+                mode={isNutri ? modalMode : "view"}
+            />
         </section>
     );
 }
