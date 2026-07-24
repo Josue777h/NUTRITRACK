@@ -142,6 +142,14 @@ function LoginPage({ onLogin }) {
 
                 {/* ── Columna derecha (formulario) ── */}
                 <div className="login-form-col">
+                    {/* Mini brand shown only on ≤520px when info panel is hidden */}
+                    <div className="login-mobile-brand">
+                        <span className="login-mobile-logo">
+                            <i className="bi bi-heart-pulse-fill" />
+                        </span>
+                        <span>NutriTrack</span>
+                    </div>
+
                     <form className="login-form" onSubmit={handleSubmit} noValidate>
                         <header className="login-form-header">
                             <h2>Iniciar sesión</h2>

@@ -2469,6 +2469,8 @@ a { color: inherit; }
     transform: translateX(-105%);
     z-index: 45;
     box-shadow: var(--shadow-xl);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .sidebar.open {
@@ -2484,29 +2486,69 @@ a { color: inherit; }
   .panel-header { flex-wrap: wrap; }
 }
 
-/* Mobile — patients use bottom nav */
+/* ─── Mobile base (≤768px) ─── */
 @media (max-width: 768px) {
-  .main-panel { padding: 0.75rem; }
+  /* App shell & navigation */
+  .main-panel {
+    padding: 0.75rem;
+    overflow-x: hidden;
+  }
 
+  /* Nutritionist role: sidebar becomes drawer, show hamburger + bottom nav */
+  .app-shell.nutritionist-role .bottom-nav {
+    display: flex !important;
+    justify-content: space-around;
+    align-items: stretch;
+  }
+  .app-shell.nutritionist-role .main-panel { padding-bottom: 78px; }
+
+  /* Patient role: hide sidebar, show bottom nav */
   .app-shell.patient-role .sidebar { display: none !important; }
   .app-shell.patient-role .menu-toggle { display: none !important; }
-  .app-shell.patient-role .bottom-nav { display: flex; }
+  .app-shell.patient-role .bottom-nav {
+    display: flex !important;
+    justify-content: space-around;
+    align-items: stretch;
+  }
   .app-shell.patient-role .main-panel { padding-bottom: 78px; }
 
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .rpt-stats-row { grid-template-columns: 1fr 1fr; }
+  /* Topbar */
+  .topbar {
+    border-radius: var(--radius);
+    padding: 0.65rem 0.85rem;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
 
+  .page-info h2 { font-size: 0.95rem; }
+  .page-info p  { font-size: 0.72rem; }
+  .user-name-short { display: none; }
+
+  /* Grids */
+  .stats-grid     { grid-template-columns: 1fr 1fr; }
+  .rpt-stats-row  { grid-template-columns: 1fr 1fr; }
   .form-grid.two-columns { grid-template-columns: 1fr; }
+  .appt-grid      { grid-template-columns: 1fr; }
+  .split-layout   { grid-template-columns: 1fr; }
 
-  .pf-layout { grid-template-columns: 1fr; }
+  /* Profile */
+  .pf-layout  { grid-template-columns: 1fr; }
   .pf-sidebar { position: static; }
   .pf-form-grid { grid-template-columns: 1fr; }
   .pf-danger-zone { flex-direction: column; align-items: flex-start; }
 
-  .topbar { border-radius: var(--radius); }
+  /* Filter pills — horizontal scroll */
+  .filter-pills-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .filter-pills-bar::-webkit-scrollbar { display: none; }
+  .filter-pill { flex-shrink: 0; }
 
-  .appt-grid { grid-template-columns: 1fr; }
-
+  /* Login: stack panels on tablet */
   .login-card {
     grid-template-columns: 1fr;
     width: min(480px, 96vw);
@@ -2515,56 +2557,363 @@ a { color: inherit; }
   .login-info {
     border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.07);
-    padding: 2rem;
+    padding: 1.5rem 1.75rem;
+    gap: 1.25rem;
   }
 
-  .login-form { padding: 2rem; }
-  .login-form-footer { padding: 1rem 2rem 1.5rem; }
+  .login-features { gap: 0.45rem; }
+  .login-feature-item { padding: 0.6rem 0.75rem; }
 
-  .user-name-short { display: none; }
+  .login-form { padding: 1.75rem; }
+  .login-form-footer { padding: 0.75rem 1.75rem 1.25rem; }
+
+  /* Panel add button full width on mobile */
+  .panel-header .btn { width: 100%; }
+
+  .report-banner { gap: 0.65rem; }
 }
 
-/* Small mobile */
+/* ─── Small mobile (≤520px) ─── */
 @media (max-width: 520px) {
   .main-panel { padding: 0.5rem; }
-  .panel { padding: 1rem; border-radius: var(--radius); }
 
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .rpt-stats-row { grid-template-columns: 1fr 1fr; }
+  .panel {
+    padding: 1rem;
+    border-radius: var(--radius);
+  }
 
-  .appt-card-v2 { padding: 0.9rem; }
-
-  .pf-panel { padding: 1.1rem; }
-  .pf-form-actions { flex-direction: column; }
-  .pf-btn-save, .pf-btn-cancel { width: 100%; justify-content: center; }
+  /* Login: hide the info panel completely on tiny screens,
+     only show the form */
+  .login-info {
+    display: none;
+  }
 
   .login-card {
     width: 100%;
     border-radius: 0;
     min-height: 100svh;
     box-shadow: none;
+    grid-template-columns: 1fr;
   }
 
-  .login-info { padding: 1.5rem; }
-  .login-form { padding: 1.5rem; }
-  .login-form-footer { padding: 0.75rem 1.5rem 1.25rem; }
-  .login-headline h1 { font-size: 1.45rem; }
-  .login-form-header h2 { font-size: 1.3rem; }
+  /* Show a compact brand inside the form on tiny screens */
+  .login-form-col {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
 
-  .role-selector { grid-template-columns: 1fr 1fr; }
+  .login-form {
+    padding: 2rem 1.5rem 1.5rem;
+    justify-content: center;
+  }
+
+  .login-form-header h2 { font-size: 1.4rem; }
+  .login-form-footer { padding: 0.75rem 1.5rem 1.5rem; }
+
+  /* Show mini brand inside form when info panel is hidden */
+  .login-form-col::before {
+    content: '';
+    display: block;
+  }
+
+  /* Topbar */
+  .topbar { padding: 0.6rem 0.75rem; gap: 0.4rem; border-radius: var(--radius-sm); }
+  .page-info h2 { font-size: 0.88rem; }
+  .page-info p  { display: none; }
+  .user-menu-trigger { padding: 0.35rem 0.5rem; gap: 0.35rem; }
+
+  /* Stats */
+  .stats-grid     { grid-template-columns: 1fr 1fr; }
+  .rpt-stats-row  { grid-template-columns: 1fr 1fr; }
+
+  /* Appointments */
+  .appt-card-v2 { padding: 0.85rem; }
+  .appt-actions-row { gap: 0.35rem; }
+  .appt-actions-row .btn { flex: 1; font-size: 0.75rem; padding: 0.4rem 0.5rem; }
+
+  /* Profile */
+  .pf-panel { padding: 1rem; }
+  .pf-form-actions { flex-direction: column; }
+  .pf-btn-save, .pf-btn-cancel { width: 100%; justify-content: center; }
   .info-panel-grid { grid-template-columns: 1fr; }
+
+  /* Details */
   .details-grid { grid-template-columns: 1fr; }
 
-  .filter-pills-bar { gap: 0.35rem; }
-  .filter-pill { font-size: 0.74rem; padding: 0.3rem 0.65rem; }
+  /* Role selector in register */
+  .role-selector { grid-template-columns: 1fr 1fr; }
 
+  /* Report */
   .report-banner { flex-direction: column; text-align: center; }
+
+  /* Filter pills */
+  .filter-pill { font-size: 0.72rem; padding: 0.28rem 0.55rem; }
+
+  /* Modal: bottom sheet on small screens */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-content {
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    max-height: 92svh;
+  }
+  .modal-body { max-height: calc(92svh - 70px); }
 }
 
-/* Minimal mobile */
+/* ─── Minimal mobile (≤380px) ─── */
 @media (max-width: 380px) {
   .role-selector { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid    { grid-template-columns: 1fr; }
+  .rpt-stats-row { grid-template-columns: 1fr; }
+
+  .appt-actions-row { flex-direction: column; }
+  .appt-actions-row .btn { width: 100%; }
+
+  .filter-pill { font-size: 0.68rem; padding: 0.24rem 0.45rem; }
+
+  .topbar { gap: 0.3rem; }
+  .topbar-left { gap: 0.4rem; }
+}
+
+/* ──────────────────────────────────────────────────────
+   LOGIN: Compact brand bar visible only on mobile
+   (shown in place of the hidden info panel ≤520px)
+   ────────────────────────────────────────────────────── */
+.login-mobile-brand {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.5rem 1.5rem 0;
+}
+
+@media (max-width: 520px) {
+  .login-mobile-brand { display: flex; }
+}
+
+.login-mobile-logo {
+  width: 2.2rem;
+  height: 2.2rem;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.login-mobile-brand span {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+/* ──────────────────────────────────────────────────────
+   DASHBOARD: Utility classes for inline-style-free grids
+   ────────────────────────────────────────────────────── */
+.dash-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dash-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .dash-actions-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.dash-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .dash-metrics-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.dash-two-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .dash-two-col {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Metric card (dashboard) */
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.metric-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.metric-card-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-card-label span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-card-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.metric-card-value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* Action button grid item */
+.dash-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0.75rem;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.82rem;
+  transition: all 0.2s ease;
+  color: #fff;
+  line-height: 1.3;
+  text-align: center;
+  min-height: 4.5rem;
+}
+
+.dash-action-btn i {
+  font-size: 1.4rem;
+}
+
+.dash-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.dash-action-btn:active { transform: translateY(0); }
+
+/* Greeting banner */
+.dash-greeting {
+  background: linear-gradient(135deg, var(--primary-soft) 0%, var(--surface) 100%);
+  border: 1px solid rgba(16,185,129,0.15);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+}
+
+.dash-greeting h3 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+}
+
+.dash-greeting p {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin-top: 0.3rem;
+}
+
+@media (max-width: 520px) {
+  .dash-greeting { padding: 1rem; }
+  .dash-greeting h3 { font-size: 1.1rem; }
+  .dash-action-btn { min-height: 4rem; font-size: 0.78rem; padding: 0.75rem 0.5rem; }
+  .dash-action-btn i { font-size: 1.2rem; }
+  .metric-card { padding: 0.9rem; }
+  .metric-card-value { font-size: 1.4rem; }
+}
+
+/* ─── Agenda item (dashboard) ─── */
+.agenda-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.agenda-item-name {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.agenda-item-time {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+/* ─── Patient portal welcome ─── */
+.patient-welcome {
+  background: linear-gradient(135deg, var(--primary-soft), var(--surface));
+  border: 1px solid rgba(16,185,129,0.15);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.patient-welcome h3 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--primary-strong);
+  margin: 0;
+}
+
+.patient-welcome p {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-top: 0.4rem;
+}
+
+@media (max-width: 520px) {
+  .patient-welcome { padding: 1.1rem; }
+  .patient-welcome h3 { font-size: 1.15rem; }
 }
 
 /* ======================================================
@@ -2576,3 +2925,5 @@ a { color: inherit; }
   .main-panel { padding: 0 !important; }
   .panel { border: 1px solid #ddd !important; box-shadow: none !important; break-inside: avoid; }
 }
+
+

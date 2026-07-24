@@ -209,7 +209,7 @@ function AppLayout({ onLogout, children }) {
                 <main className="screen-content">{children}</main>
             </section>
 
-            {/* Bottom Nav (móviles) */}
+            {/* Bottom Nav — siempre visible en móvil (paciente + nutriólogo) */}
             <nav className="bottom-nav" aria-label="Navegación principal">
                 {navItems.map((item) => (
                     <NavLink

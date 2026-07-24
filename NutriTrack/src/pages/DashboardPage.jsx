@@ -1,274 +1,230 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 
-// Modals for Specialist Quick Actions
-import AddPatientModal from "../components/AddPatientModal";
-import AppointmentModal from "../components/AppointmentModal";
-import PlanModal from "../components/PlanModal";
-import ReportModal from "../components/ReportModal";
+import AddPatientModal    from "../components/AddPatientModal";
+import AppointmentModal   from "../components/AppointmentModal";
+import PlanModal          from "../components/PlanModal";
+import ReportModal        from "../components/ReportModal";
 
 function formatDate(dateValue) {
     if (!dateValue) return "";
     return new Date(`${dateValue}T00:00:00`).toLocaleDateString("es-CO", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
+        day: "2-digit", month: "short", year: "numeric",
     });
+}
+
+function getGreeting() {
+    const h = new Date().getHours();
+    if (h < 12) return "Buenos días";
+    if (h < 18) return "Buenas tardes";
+    return "Buenas noches";
 }
 
 function DashboardPage() {
     const navigate = useNavigate();
     const { showSuccess, showWarning } = useToast();
-    const { auth, patients, appointments, plans, reports, addPatient, addAppointment, addPlan, addReport } = useApp();
+    const { auth, patients, appointments, plans, reports,
+            addPatient, addAppointment, addPlan, addReport } = useApp();
 
     const isNutri = auth.role === "nutriologo";
 
-    // Modal Visibility States
-    const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+    const [isPatientModalOpen,     setIsPatientModalOpen]     = useState(false);
     const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
-    const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
-    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [isPlanModalOpen,        setIsPlanModalOpen]        = useState(false);
+    const [isReportModalOpen,      setIsReportModalOpen]      = useState(false);
 
-    // Specialist Info
     const currentPatient = useMemo(() => {
-        if (auth.role === "usuario") {
-            if (!auth.patientId) return null;
-            return patients.find((p) => Number(p.id) === Number(auth.patientId)) || null;
-        }
-        return null;
+        if (auth.role !== "usuario" || !auth.patientId) return null;
+        return patients.find((p) => Number(p.id) === Number(auth.patientId)) ?? null;
     }, [auth.patientId, auth.role, patients]);
 
     const visibleAppointments = useMemo(() => {
-        if (auth.role === "usuario") {
-            return appointments.filter((item) => item.patientId === auth.patientId);
-        }
+        if (auth.role === "usuario") return appointments.filter((a) => a.patientId === auth.patientId);
         return appointments;
     }, [appointments, auth.patientId, auth.role]);
 
     const upcomingAppointments = useMemo(() => {
         return [...visibleAppointments]
-            .filter((item) => item.status !== "Cancelada")
+            .filter((a) => a.status !== "Cancelada")
             .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
     }, [visibleAppointments]);
 
-    const getGreetingName = (fullName) => {
+    const getFirstName = (fullName) => {
         if (!fullName) return "Usuario";
         const parts = fullName.split(" ");
-        if (parts[0] === "Dra." || parts[0] === "Dr.") {
-            return parts.slice(0, 2).join(" ");
-        }
-        return parts[0];
-    };
-    const greetingName = getGreetingName(auth.fullName);
-
-    // Recent activity list (Mocked events for UX)
-    const recentActivity = [
-        { id: 1, text: "Nueva consulta registrada para Ana Mendoza", time: "Hace 2 horas" },
-        { id: 2, text: "Carlos Ruiz confirmó su cita de mañana", time: "Hace 4 horas" },
-        { id: 3, text: "Creaste un nuevo plan nutricional deportivo", time: "Ayer" }
-    ];
-
-    const getPatientName = (patientId) => patients.find((item) => item.id === patientId)?.name ?? "Paciente";
-
-    // Modals handlers
-    const handleSavePatient = async (patientData) => {
-        await addPatient(patientData);
-        showSuccess("Paciente registrado exitosamente.");
-        setIsPatientModalOpen(false);
+        return parts[0] === "Dra." || parts[0] === "Dr." ? parts.slice(0, 2).join(" ") : parts[0];
     };
 
-    const handleSaveAppointment = (apptData) => {
-        addAppointment(apptData);
-        showSuccess("Cita agendada exitosamente.");
-        setIsAppointmentModalOpen(false);
+    const greetingName = getFirstName(auth.fullName);
+    const getPatientName = (id) => patients.find((p) => p.id === id)?.name ?? "Paciente";
+
+    /* ── Handlers ── */
+    const handleSavePatient     = async (d) => { await addPatient(d); showSuccess("Paciente registrado."); setIsPatientModalOpen(false); };
+    const handleSaveAppointment = (d) => { addAppointment(d); showSuccess("Cita agendada."); setIsAppointmentModalOpen(false); };
+    const handleSavePlan        = (d) => { addPlan(d); showSuccess("Plan creado."); setIsPlanModalOpen(false); };
+    const handleSaveReport      = (d) => { addReport(d); showSuccess("Consulta registrada."); setIsReportModalOpen(false); };
+
+    const openAppointmentModal = () => {
+        if (!patients.length) { showWarning("Primero registra un paciente."); setIsPatientModalOpen(true); }
+        else setIsAppointmentModalOpen(true);
+    };
+    const openPlanModal = () => {
+        if (!patients.length) { showWarning("Primero registra un paciente."); setIsPatientModalOpen(true); }
+        else setIsPlanModalOpen(true);
+    };
+    const openReportModal = () => {
+        if (!patients.length) { showWarning("Primero registra un paciente."); setIsPatientModalOpen(true); }
+        else setIsReportModalOpen(true);
     };
 
-    const handleSavePlan = (planData) => {
-        addPlan(planData);
-        showSuccess("Plan alimenticio creado exitosamente.");
-        setIsPlanModalOpen(false);
-    };
-
-    const handleSaveReport = (reportData) => {
-        addReport(reportData);
-        showSuccess("Consulta registrada exitosamente.");
-        setIsReportModalOpen(false);
-    };
-
-    // ────────────────────────────────────────────────────────
-    // 1. RENDER PARA NUTRIÓLOGO (SPECIALIST)
-    // ────────────────────────────────────────────────────────
-    if (auth.role === "nutriologo") {
+    /* ================================================================
+       NUTRIÓLOGO DASHBOARD
+       ================================================================ */
+    if (isNutri) {
         const todayStr = new Date().toISOString().split("T")[0];
-        
-        // Filter appointments scheduled for today
-        const agendaHoy = upcomingAppointments.filter(a => a.date === todayStr);
-        const todayCitas = agendaHoy.length;
+        const agendaHoy = upcomingAppointments.filter((a) => a.date === todayStr);
 
-        // Patients registered in the last 30 days (Nuevos pacientes del mes)
-        const newPatientsCount = patients.filter(p => {
-            if (!p.created_at) return true; // fallback
-            const created = new Date(p.created_at).getTime();
-            const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-            return created > thirtyDaysAgo;
+        const newPatientsCount = patients.filter((p) => {
+            if (!p.created_at) return true;
+            return new Date(p.created_at).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000;
         }).length;
 
-        // Pending follow-ups (citas in status 'pendiente')
-        const pendingSeguimientos = appointments.filter(a => a.status?.toLowerCase() === "pendiente").length;
+        const pendingSeguimientos = appointments.filter(
+            (a) => a.status?.toLowerCase() === "pendiente"
+        ).length;
 
         const metrics = [
-            { label: "Pacientes activos", value: patients.length, icon: "bi-people", color: "var(--primary)" },
-            { label: "Citas de hoy", value: todayCitas, icon: "bi-calendar-check", color: "var(--secondary)" },
-            { label: "Consultas pendientes", value: pendingSeguimientos, icon: "bi-chat-left-dots", color: "#f59e0b" },
-            { label: "Nuevos pacientes (mes)", value: newPatientsCount, icon: "bi-person-plus", color: "#8b5cf6" }
+            { label: "Pacientes activos", value: patients.length,     icon: "bi-people",        color: "var(--primary)" },
+            { label: "Citas de hoy",      value: agendaHoy.length,    icon: "bi-calendar-check", color: "var(--secondary)" },
+            { label: "Pendientes",        value: pendingSeguimientos, icon: "bi-chat-left-dots",  color: "var(--accent)" },
+            { label: "Nuevos (mes)",      value: newPatientsCount,    icon: "bi-person-plus",     color: "#8b5cf6" },
+        ];
+
+        const actions = [
+            { label: "Registrar paciente", icon: "bi-person-plus",      bg: "var(--primary)",   onClick: () => setIsPatientModalOpen(true) },
+            { label: "Agendar cita",       icon: "bi-calendar-plus",    bg: "var(--secondary)", onClick: openAppointmentModal },
+            { label: "Crear plan",         icon: "bi-apple",            bg: "#7c3aed",          onClick: openPlanModal },
+            { label: "Registrar consulta", icon: "bi-clipboard2-pulse", bg: "#0ea5e9",          onClick: openReportModal },
         ];
 
         return (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                
-                {/* Greeting Banner */}
-                <div className="panel" style={{ padding: "1.5rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)" }}>
-                    <h3 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--text)", margin: 0 }}>
-                        Buenos días, {greetingName} 👋
-                    </h3>
-                    <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.4rem" }}>
-                        Gestiona tus citas del día, interactúa con tus pacientes y consulta tu agenda clínica.
-                    </p>
+            <div className="dash-grid">
+                {/* Greeting */}
+                <div className="dash-greeting">
+                    <h3>{getGreeting()}, {greetingName} 👋</h3>
+                    <p>Gestiona tus citas del día, interactúa con tus pacientes y consulta tu agenda clínica.</p>
                 </div>
 
-                {/* Quick Actions */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
-                    <button
-                        onClick={() => setIsPatientModalOpen(true)}
-                        className="btn success"
-                        style={{ height: "4rem", fontSize: "0.95rem", fontWeight: "600", border: "none" }}
-                    >
-                        <i className="bi bi-person-plus" />
-                        Registrar paciente
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (isNutri && (!patients || patients.length === 0)) {
-                                showWarning("Primero debes registrar al menos un paciente para agendarle una cita.");
-                                setIsPatientModalOpen(true);
-                            } else {
-                                setIsAppointmentModalOpen(true);
-                            }
-                        }}
-                        className="btn"
-                        style={{ height: "4rem", fontSize: "0.95rem", fontWeight: "600", background: "var(--secondary)", border: "none" }}
-                    >
-                        <i className="bi bi-calendar-plus" />
-                        Agendar cita
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (isNutri && (!patients || patients.length === 0)) {
-                                showWarning("Primero debes registrar al menos un paciente para asignarle un plan.");
-                                setIsPatientModalOpen(true);
-                            } else {
-                                setIsPlanModalOpen(true);
-                            }
-                        }}
-                        className="btn"
-                        style={{ height: "4rem", fontSize: "0.95rem", fontWeight: "600", background: "#0b0f19", border: "none" }}
-                    >
-                        <i className="bi bi-apple" />
-                        Crear plan nutricional
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (isNutri && (!patients || patients.length === 0)) {
-                                showWarning("Primero debes registrar al menos un paciente para registrar una consulta.");
-                                setIsPatientModalOpen(true);
-                            } else {
-                                setIsReportModalOpen(true);
-                            }
-                        }}
-                        className="btn secondary"
-                        style={{ height: "4rem", fontSize: "0.95rem", fontWeight: "600" }}
-                    >
-                        <i className="bi bi-clipboard2-pulse" />
-                        Registrar consulta
-                    </button>
+                {/* Quick Actions — 2 columns on mobile, 4 on desktop */}
+                <div className="dash-actions-grid">
+                    {actions.map((a) => (
+                        <button
+                            key={a.label}
+                            className="dash-action-btn"
+                            style={{ background: a.bg }}
+                            onClick={a.onClick}
+                            type="button"
+                        >
+                            <i className={`bi ${a.icon}`} />
+                            {a.label}
+                        </button>
+                    ))}
                 </div>
 
-                {/* Metrics Cards */}
-                <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
-                    {metrics.map((stat) => (
-                        <div className="panel" key={stat.label} style={{ padding: "1.25rem", borderRadius: "var(--radius-lg)", display: "flex", flexDirection: "column", gap: "0.5rem", border: "1px solid var(--line)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ color: "var(--muted)", fontSize: "0.8rem", fontWeight: "600", textTransform: "uppercase" }}>{stat.label}</span>
-                                <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: `${stat.color}10`, display: "grid", placeItems: "center", color: stat.color }}>
-                                    <i className={`bi ${stat.icon}`} style={{ fontSize: "1rem" }} />
+                {/* Metrics — 2 columns on mobile, 4 on desktop */}
+                <div className="dash-metrics-grid">
+                    {metrics.map((m) => (
+                        <div key={m.label} className="metric-card">
+                            <div className="metric-card-label">
+                                <span>{m.label}</span>
+                                <div
+                                    className="metric-card-icon"
+                                    style={{ background: `${m.color}18`, color: m.color }}
+                                >
+                                    <i className={`bi ${m.icon}`} />
                                 </div>
                             </div>
-                            <strong style={{ fontSize: "1.75rem", fontWeight: "700", color: "var(--text)" }}>{stat.value}</strong>
+                            <strong className="metric-card-value">{m.value}</strong>
                         </div>
                     ))}
                 </div>
 
-                {/* Two Column Layout: Agenda vs Activity */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
+                {/* Agenda + Próximas — stacks on mobile, side-by-side on desktop */}
+                <div className="dash-two-col">
                     {/* Agenda del Día */}
-                    <div className="panel" style={{ padding: "1.5rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                            <h4 style={{ fontWeight: "700", margin: 0 }}>Agenda del Día</h4>
-                            <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{formatDate(todayStr)}</span>
+                    <div className="panel">
+                        <div className="panel-header">
+                            <div>
+                                <h4 className="panel-title">Agenda del Día</h4>
+                                <p className="panel-subtitle">{formatDate(todayStr)}</p>
+                            </div>
+                            <span className="badge primary">{agendaHoy.length}</span>
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                            {agendaHoy.length ? (
-                                agendaHoy.map((item) => (
-                                    <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", background: "var(--surface-soft)" }}>
-                                        <div>
-                                            <strong style={{ display: "block", fontSize: "0.85rem" }}>{getPatientName(item.patientId)}</strong>
-                                            <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}><i className="bi bi-clock" /> {item.time} ({item.duration} min)</span>
-                                        </div>
-                                        <span className={`status-pill status-${item.status === 'Confirmada' ? 'success' : 'warning'}`} style={{ fontSize: "0.65rem" }}>
-                                            {item.status}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                            {agendaHoy.length ? agendaHoy.map((item) => (
+                                <div key={item.id} className="agenda-item">
+                                    <div>
+                                        <span className="agenda-item-name">{getPatientName(item.patientId)}</span>
+                                        <span className="agenda-item-time">
+                                            <i className="bi bi-clock" /> {item.time}
+                                            {item.duration ? ` · ${item.duration} min` : ""}
                                         </span>
                                     </div>
-                                ))
-                            ) : (
-                                <p style={{ color: "var(--muted)", fontStyle: "italic", textAlign: "center", padding: "1.5rem 0", fontSize: "0.8rem" }}>No tienes citas agendadas para hoy.</p>
+                                    <span className={`status-pill ${item.status === "Confirmada" ? "confirmada" : "pendiente"}`}>
+                                        {item.status}
+                                    </span>
+                                </div>
+                            )) : (
+                                <p style={{ color: "var(--muted)", fontStyle: "italic", textAlign: "center", padding: "1.25rem 0", fontSize: "0.82rem" }}>
+                                    No hay citas para hoy.
+                                </p>
                             )}
                         </div>
                     </div>
 
-                    {/* Actividad Reciente */}
-                    <div className="panel" style={{ padding: "1.5rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)" }}>
-                        <h4 style={{ fontWeight: "700", marginBottom: "1rem" }}>Actividad Reciente</h4>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                            {recentActivity.map((activity) => (
-                                <div key={activity.id} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start", padding: "0.4rem 0" }}>
-                                    <i className="bi bi-lightning" style={{ color: "var(--primary)", marginTop: "0.25rem" }} />
+                    {/* Próximas citas */}
+                    <div className="panel">
+                        <div className="panel-header">
+                            <h4 className="panel-title">Próximas citas</h4>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                            {upcomingAppointments.slice(0, 4).length ? upcomingAppointments.slice(0, 4).map((item) => (
+                                <div key={item.id} className="agenda-item">
                                     <div>
-                                        <p style={{ fontSize: "0.8rem", margin: 0, color: "var(--text)" }}>{activity.text}</p>
-                                        <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{activity.time}</span>
+                                        <span className="agenda-item-name">{getPatientName(item.patientId)}</span>
+                                        <span className="agenda-item-time">
+                                            <i className="bi bi-calendar3" /> {formatDate(item.date)} · {item.time}
+                                        </span>
                                     </div>
+                                    <span className={`status-pill ${item.status?.toLowerCase() === "confirmada" ? "confirmada" : "pendiente"}`}>
+                                        {item.status}
+                                    </span>
                                 </div>
-                            ))}
+                            )) : (
+                                <p style={{ color: "var(--muted)", fontStyle: "italic", textAlign: "center", padding: "1.25rem 0", fontSize: "0.82rem" }}>
+                                    Sin próximas citas.
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 {/* Modals */}
-                <AddPatientModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} />
-                <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} mode="add" />
-                <PlanModal isOpen={isPlanModalOpen} onClose={() => setIsPlanModalOpen(false)} onSave={handleSavePlan} patients={patients} mode="add" />
-                <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} onSave={handleSaveReport} patients={patients} mode="add" />
+                <AddPatientModal   isOpen={isPatientModalOpen}     onClose={() => setIsPatientModalOpen(false)}     onSave={handleSavePatient} />
+                <AppointmentModal  isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} mode="add" />
+                <PlanModal         isOpen={isPlanModalOpen}        onClose={() => setIsPlanModalOpen(false)}        onSave={handleSavePlan}        patients={patients} mode="add" />
+                <ReportModal       isOpen={isReportModalOpen}      onClose={() => setIsReportModalOpen(false)}      onSave={handleSaveReport}      patients={patients} mode="add" />
             </div>
         );
     }
 
-    // ────────────────────────────────────────────────────────
-    // 2. RENDER PARA PACIENTE (USER) - EXTREMADAMENTE SIMPLE
-    // ────────────────────────────────────────────────────────
+    /* ================================================================
+       PACIENTE DASHBOARD
+       ================================================================ */
     const nextAppt = upcomingAppointments[0];
 
-    // Calculate weight progress or difference if reports exist
     const patientReports = useMemo(() => {
         if (!auth.patientId) return [];
         return reports
@@ -281,29 +237,25 @@ function DashboardPage() {
             const last = patientReports[patientReports.length - 1];
             const prev = patientReports[patientReports.length - 2];
             const diff = Number((last.weight - prev.weight).toFixed(1));
-            return diff < 0 ? `Has bajado ${Math.abs(diff)} kg` : diff > 0 ? `Has subido ${diff} kg` : "Sin variaciones";
+            return diff < 0 ? `Bajaste ${Math.abs(diff)} kg` : diff > 0 ? `Subiste ${diff} kg` : "Sin variaciones";
         }
-        return "Medición inicial registrada";
+        return "Medición inicial";
     }, [patientReports]);
 
-    if (auth.role === "usuario" && !currentPatient) {
+    /* No hay ficha clínica todavía */
+    if (!currentPatient) {
         return (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", maxWidth: "650px", margin: "0 auto" }}>
-                <div className="panel" style={{ padding: "2rem 1.5rem", borderRadius: "var(--radius-lg)", border: "none", background: "linear-gradient(135deg, var(--primary-soft) 0%, var(--surface) 100%)", boxShadow: "0 2px 8px rgba(16, 185, 129, 0.04)", textAlign: "center" }}>
-                    <h3 style={{ fontSize: "1.6rem", fontWeight: "800", color: "var(--primary-strong)", margin: 0 }}>
-                        ¡Hola, {auth.fullName?.split(" ")[0] || "Paciente"}! 👋
-                    </h3>
-                    <p style={{ color: "var(--text-light)", fontSize: "0.95rem", marginTop: "0.5rem" }}>
-                        Te damos la bienvenida a tu portal de salud NutriTrack.
-                    </p>
+            <div className="dash-grid" style={{ maxWidth: 640, margin: "0 auto" }}>
+                <div className="patient-welcome">
+                    <h3>¡Hola, {getFirstName(auth.fullName)}! 👋</h3>
+                    <p>Bienvenido a tu portal de salud NutriTrack.</p>
                 </div>
-                
-                <div className="panel" style={{ padding: "2rem 1.5rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)", textAlign: "center" }}>
+                <div className="panel" style={{ textAlign: "center", padding: "2rem 1.5rem" }}>
                     <i className="bi bi-person-exclamation" style={{ fontSize: "3rem", color: "var(--muted)", display: "block", marginBottom: "1rem" }} />
-                    <h4 style={{ fontWeight: "700", marginBottom: "0.5rem" }}>Esperando Ficha Clínica</h4>
-                    <p style={{ color: "var(--muted)", fontSize: "0.85rem", lineHeight: "1.4" }}>
-                        Aún no se ha enlazado una ficha clínica de paciente para tu correo electrónico. 
-                        Pídele a tu nutriólogo que te registre en su directorio usando tu correo <strong>{auth.username}</strong> para poder ver tus dietas y reportes aquí.
+                    <h4 style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Esperando Ficha Clínica</h4>
+                    <p style={{ color: "var(--muted)", fontSize: "0.85rem", lineHeight: 1.5, maxWidth: "38ch", margin: "0 auto" }}>
+                        Pídele a tu nutriólogo que te registre en su directorio usando el correo{" "}
+                        <strong>{auth.username}</strong> para ver tus datos aquí.
                     </p>
                 </div>
             </div>
@@ -311,71 +263,83 @@ function DashboardPage() {
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", maxWidth: "650px", margin: "0 auto" }}>
-            
+        <div className="dash-grid" style={{ maxWidth: 640, margin: "0 auto" }}>
             {/* Bienvenida */}
-            <div className="panel" style={{ padding: "2rem 1.5rem", borderRadius: "var(--radius-lg)", border: "none", background: "linear-gradient(135deg, var(--primary-soft) 0%, var(--surface) 100%)", boxShadow: "0 2px 8px rgba(16, 185, 129, 0.04)" }}>
-                <h3 style={{ fontSize: "1.6rem", fontWeight: "800", color: "var(--primary-strong)", margin: 0 }}>
-                    ¡Hola, {auth.fullName?.split(" ")[0] || "Paciente"}! 👋
-                </h3>
-                <p style={{ color: "var(--text-light)", fontSize: "0.95rem", marginTop: "0.5rem" }}>
-                    Te damos la bienvenida a tu portal de salud NutriTrack.
-                </p>
+            <div className="patient-welcome">
+                <h3>¡Hola, {getFirstName(auth.fullName)}! 👋</h3>
+                <p>Bienvenido a tu portal de salud NutriTrack.</p>
             </div>
 
-            {/* Metrics Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                {/* Próxima Cita */}
-                <div className="panel" style={{ padding: "1.25rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)" }}>
-                    <span style={{ color: "var(--muted)", fontSize: "0.75rem", fontWeight: "600", textTransform: "uppercase", display: "block", marginBottom: "0.4rem" }}>Próxima Cita</span>
-                    <strong style={{ fontSize: "1.05rem", fontWeight: "700", color: "var(--text)", display: "block" }}>
-                        {nextAppt ? `${formatDate(nextAppt.date)}` : "Sin agendar"}
+            {/* Metrics 2×2 — stays 2 columns on all sizes */}
+            <div className="dash-metrics-grid">
+                {/* Próxima cita */}
+                <div className="metric-card">
+                    <div className="metric-card-label">
+                        <span>Próxima cita</span>
+                        <div className="metric-card-icon" style={{ background: "var(--primary-soft)", color: "var(--primary)" }}>
+                            <i className="bi bi-calendar-heart" />
+                        </div>
+                    </div>
+                    <strong className="metric-card-value" style={{ fontSize: "1.05rem", letterSpacing: 0, lineHeight: 1.2 }}>
+                        {nextAppt ? formatDate(nextAppt.date) : "Sin agendar"}
                     </strong>
                     {nextAppt && (
-                        <span style={{ fontSize: "0.8rem", color: "var(--muted)", display: "block", marginTop: "0.15rem" }}>
-                            a las {nextAppt.time}
-                        </span>
+                        <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>a las {nextAppt.time}</span>
                     )}
                 </div>
 
-                {/* Peso Actual */}
-                <div className="panel" style={{ padding: "1.25rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)" }}>
-                    <span style={{ color: "var(--muted)", fontSize: "0.75rem", fontWeight: "600", textTransform: "uppercase", display: "block", marginBottom: "0.4rem" }}>Peso Actual</span>
-                    <strong style={{ fontSize: "1.2rem", fontWeight: "800", color: "var(--text)" }}>
-                        {currentPatient ? `${currentPatient.weight} kg` : "—"}
+                {/* Peso */}
+                <div className="metric-card">
+                    <div className="metric-card-label">
+                        <span>Peso actual</span>
+                        <div className="metric-card-icon" style={{ background: "var(--secondary-soft)", color: "var(--secondary)" }}>
+                            <i className="bi bi-activity" />
+                        </div>
+                    </div>
+                    <strong className="metric-card-value">
+                        {currentPatient?.weight ? `${currentPatient.weight} kg` : "—"}
                     </strong>
-                    <span style={{ fontSize: "0.8rem", color: "var(--muted)", display: "block", marginTop: "0.15rem" }}>
-                        Estatura: {currentPatient ? `${currentPatient.height} cm` : "—"}
+                    <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                        Estatura: {currentPatient?.height ? `${currentPatient.height} cm` : "—"}
                     </span>
                 </div>
 
                 {/* Objetivo */}
-                <div className="panel" style={{ padding: "1.25rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)" }}>
-                    <span style={{ color: "var(--muted)", fontSize: "0.75rem", fontWeight: "600", textTransform: "uppercase", display: "block", marginBottom: "0.4rem" }}>Mi Objetivo</span>
-                    <strong style={{ fontSize: "1.05rem", fontWeight: "700", color: "var(--primary-strong)" }}>
+                <div className="metric-card">
+                    <div className="metric-card-label">
+                        <span>Mi objetivo</span>
+                        <div className="metric-card-icon" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+                            <i className="bi bi-bullseye" />
+                        </div>
+                    </div>
+                    <strong className="metric-card-value" style={{ fontSize: "1rem", letterSpacing: 0, lineHeight: 1.3 }}>
                         {currentPatient?.target || "Control Calórico"}
                     </strong>
                 </div>
 
-                {/* Último progreso */}
-                <div className="panel" style={{ padding: "1.25rem", borderRadius: "var(--radius-lg)", border: "1px solid var(--line)" }}>
-                    <span style={{ color: "var(--muted)", fontSize: "0.75rem", fontWeight: "600", textTransform: "uppercase", display: "block", marginBottom: "0.4rem" }}>Último Progreso</span>
-                    <strong style={{ fontSize: "0.9rem", fontWeight: "600", color: "var(--text)" }}>
+                {/* Progreso */}
+                <div className="metric-card">
+                    <div className="metric-card-label">
+                        <span>Último progreso</span>
+                        <div className="metric-card-icon" style={{ background: "var(--success-soft)", color: "var(--success)" }}>
+                            <i className="bi bi-graph-up" />
+                        </div>
+                    </div>
+                    <strong className="metric-card-value" style={{ fontSize: "0.95rem", letterSpacing: 0, lineHeight: 1.3 }}>
                         {latestProgressText}
                     </strong>
                 </div>
             </div>
 
-            {/* Action Button: Ver Plan Alimenticio */}
+            {/* CTA */}
             <button
                 onClick={() => navigate("/planes")}
-                className="btn success large"
-                style={{ width: "100%", height: "4.5rem", borderRadius: "var(--radius-lg)", fontSize: "1.1rem", fontWeight: "700", display: "flex", gap: "0.75rem", background: "var(--primary)", border: "none", boxShadow: "var(--shadow)" }}
+                className="btn large"
+                style={{ width: "100%", justifyContent: "center", gap: "0.75rem", fontSize: "1rem" }}
             >
-                <i className="bi bi-apple" style={{ fontSize: "1.3rem" }} />
+                <i className="bi bi-apple" style={{ fontSize: "1.2rem" }} />
                 Ver mi plan alimenticio
             </button>
-            
         </div>
     );
 }
