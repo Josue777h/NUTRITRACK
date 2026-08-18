@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import LineChart from "./charts/LineChart";
+import PlanModal from "./PlanModal";
 
 function formatDate(dateValue) {
     if (!dateValue) return "";
@@ -12,12 +13,28 @@ function formatDate(dateValue) {
     });
 }
 
+function samePatientId(a, b) {
+    return Number(a) === Number(b);
+}
+
 function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
     const { showSuccess, showError } = useToast();
-    const { appointments, plans, reports, addReport, updatePatient } = useApp();
+    const {
+        patients,
+        appointments,
+        plans,
+        reports,
+        addReport,
+        addPlan,
+        updatePlan,
+        removePlan
+    } = useApp();
 
     const [activeTab, setActiveTab] = useState("resumen");
     const [isEditingDemographics, setIsEditingDemographics] = useState(false);
+    const [planModalOpen, setPlanModalOpen] = useState(false);
+    const [planModalMode, setPlanModalMode] = useState("add");
+    const [selectedPlan, setSelectedPlan] = useState(null);
 
     // Demographics form state
     const [demoForm, setDemoForm] = useState({
@@ -57,40 +74,47 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
     const [newFileName, setNewFileName] = useState("");
     const [newFileCategory, setNewFileCategory] = useState("Resultados de laboratorio");
 
-    // Initialize states when patient changes
+    // Sync demographic fields when patient data updates (without resetting active tab)
     useEffect(() => {
-        if (patient) {
-            setDemoForm({
-                name: patient.name || "",
-                age: patient.age || "",
-                gender: patient.gender || "femenino",
-                weight: patient.weight || "",
-                height: patient.height || "",
-                target: patient.target || "Reducir IMC",
-                email: patient.email || "",
-                phone: patient.phone || ""
-            });
-            setNotesText(patient.notes || "");
-            setConsultForm(prev => ({
-                ...prev,
-                weight: "",
-                height: patient.height || "",
-                feeling: "bien",
-                observations: "",
-                diagnosis: "",
-                recommendations: "",
-                calories: "2000"
-            }));
-            setIsEditingDemographics(false);
-            setActiveTab("resumen");
-        }
+        if (!patient) return;
+        setDemoForm({
+            name: patient.name || "",
+            age: patient.age || "",
+            gender: patient.gender || "femenino",
+            weight: patient.weight || "",
+            height: patient.height || "",
+            target: patient.target || "Reducir IMC",
+            email: patient.email || "",
+            phone: patient.phone || ""
+        });
+        setNotesText(patient.notes || "");
     }, [patient]);
 
-    // Derived states
+    // Only reset UI when switching to a different patient
+    useEffect(() => {
+        if (!patient) return;
+        setConsultForm((prev) => ({
+            ...prev,
+            weight: "",
+            height: patient.height || "",
+            feeling: "bien",
+            observations: "",
+            diagnosis: "",
+            recommendations: "",
+            calories: "2000",
+            date: new Date().toISOString().split("T")[0]
+        }));
+        setIsEditingDemographics(false);
+        setActiveTab("resumen");
+        setPlanModalOpen(false);
+        setSelectedPlan(null);
+    }, [patient?.id]);
+
+    // Derived states — compare IDs loosely so string/number mismatches still match
     const patientReports = useMemo(() => {
         if (!patient) return [];
         return reports
-            .filter((item) => item.patientId === patient.id)
+            .filter((item) => samePatientId(item.patientId, patient.id))
             .sort((a, b) => a.date.localeCompare(b.date));
     }, [patient, reports]);
 
@@ -100,13 +124,13 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
 
     const patientPlans = useMemo(() => {
         if (!patient) return [];
-        return plans.filter((item) => item.patientId === patient.id);
+        return plans.filter((item) => samePatientId(item.patientId, patient.id));
     }, [patient, plans]);
 
     const patientAppointments = useMemo(() => {
         if (!patient) return [];
         return appointments
-            .filter((item) => item.patientId === patient.id)
+            .filter((item) => samePatientId(item.patientId, patient.id) && !item.archived)
             .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
     }, [patient, appointments]);
 
@@ -279,6 +303,42 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
             calories: "2000"
         }));
         showSuccess("Consulta registrada exitosamente.");
+    };
+
+    const openCreatePlan = () => {
+        setSelectedPlan({ patientId: patient.id });
+        setPlanModalMode("add");
+        setPlanModalOpen(true);
+    };
+
+    const openEditPlan = (plan) => {
+        setSelectedPlan(plan);
+        setPlanModalMode("edit");
+        setPlanModalOpen(true);
+    };
+
+    const openViewPlan = (plan) => {
+        setSelectedPlan(plan);
+        setPlanModalMode("view");
+        setPlanModalOpen(true);
+    };
+
+    const handleSavePlan = (planData) => {
+        if (planModalMode === "add") {
+            addPlan(planData);
+            showSuccess("Plan alimenticio creado y asignado al paciente.");
+        } else {
+            updatePlan(planData.id, planData);
+            showSuccess("Plan alimenticio actualizado.");
+        }
+        setPlanModalOpen(false);
+    };
+
+    const handleDeletePlan = (planId) => {
+        if (window.confirm("¿Eliminar este plan alimenticio?")) {
+            removePlan(planId);
+            showSuccess("Plan eliminado.");
+        }
     };
 
     const handleAddFile = (e) => {
@@ -598,41 +658,57 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                 {/* 3. DIETA TAB */}
                 {activeTab === "dieta" && (
                     <div style={{ display: "grid", gap: "1rem" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <h5 style={{ fontWeight: "800", margin: 0 }}>Plan Alimenticio Actual</h5>
-                            <button className="btn secondary small" onClick={() => navigate("/planes")} style={{ fontSize: "0.8rem" }}>
-                                <i className="bi bi-pencil-square" style={{ marginRight: "0.3rem" }} />
-                                Modificar planes
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                            <h5 style={{ fontWeight: "800", margin: 0 }}>Plan Alimenticio</h5>
+                            <button
+                                className="btn success small"
+                                type="button"
+                                onClick={openCreatePlan}
+                                style={{ fontSize: "0.8rem", background: "var(--primary)", border: "none" }}
+                            >
+                                <i className="bi bi-plus-circle" style={{ marginRight: "0.3rem" }} />
+                                Nuevo plan
                             </button>
                         </div>
 
                         {patientPlans.length > 0 ? (
                             patientPlans.map((plan) => (
-                                <div key={plan.id} className="panel" style={{ padding: "1.25rem", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--line)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
+                                <div key={plan.id} style={{ padding: "1.25rem", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", background: "var(--surface)" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--line)", paddingBottom: "0.5rem", marginBottom: "1rem", gap: "0.75rem", flexWrap: "wrap" }}>
                                         <div>
                                             <strong style={{ fontSize: "1.1rem" }}>{plan.name}</strong>
                                             <span style={{ display: "block", fontSize: "0.75rem", color: "var(--muted)" }}>
                                                 Objetivo: {plan.target} | Duración: {plan.duration} semanas
                                             </span>
                                         </div>
-                                        <span className="badge" style={{ background: "var(--primary-soft)", color: "var(--primary-strong)" }}>
-                                            {plan.calories} kcal
-                                        </span>
+                                        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center", flexWrap: "wrap" }}>
+                                            <span className="badge" style={{ background: "var(--primary-soft)", color: "var(--primary-strong)" }}>
+                                                {plan.calories} kcal
+                                            </span>
+                                            <button type="button" className="btn secondary small" onClick={() => openViewPlan(plan)} title="Ver">
+                                                <i className="bi bi-eye" />
+                                            </button>
+                                            <button type="button" className="btn ghost small" onClick={() => openEditPlan(plan)} title="Editar">
+                                                <i className="bi bi-pencil" />
+                                            </button>
+                                            <button type="button" className="btn danger small" onClick={() => handleDeletePlan(plan.id)} title="Eliminar">
+                                                <i className="bi bi-trash" />
+                                            </button>
+                                        </div>
                                     </div>
                                     
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
                                         {Object.entries(plan.meals || {}).map(([mealKey, foods]) => {
                                             const labelsMap = {
-                                                desayuno: "🍳 Desayuno",
-                                                mediaManana: "🥛 Media Mañana",
-                                                almuerzo: "🍗 Almuerzo",
-                                                merienda: "🍎 Merienda",
-                                                cena: "🥗 Cena",
-                                                snack: "🌙 Snack"
+                                                desayuno: "Desayuno",
+                                                mediaManana: "Media Mañana",
+                                                almuerzo: "Almuerzo",
+                                                merienda: "Merienda",
+                                                cena: "Cena",
+                                                snack: "Snack"
                                             };
                                             return (
-                                                <div key={mealKey} style={{ padding: "0.5rem", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", background: "var(--surface-soft)" }}>
+                                                <div key={mealKey} style={{ padding: "0.65rem", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", background: "var(--surface-soft)" }}>
                                                     <strong style={{ display: "block", marginBottom: "0.4rem", color: "var(--primary)", fontSize: "0.85rem" }}>
                                                         {labelsMap[mealKey] || mealKey}
                                                     </strong>
@@ -640,7 +716,8 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                                                         <ul style={{ paddingLeft: "1rem", margin: 0, fontSize: "0.8rem", listStyle: "disc" }}>
                                                             {foods.map((food, i) => (
                                                                 <li key={i} style={{ marginBottom: "0.25rem" }}>
-                                                                    <strong>{food.name || food}</strong> <span style={{ color: "var(--muted)" }}>({food.qty} {food.unit})</span>
+                                                                    <strong>{food.name || food}</strong>{" "}
+                                                                    <span style={{ color: "var(--muted)" }}>({food.qty} {food.unit})</span>
                                                                 </li>
                                                             ))}
                                                         </ul>
@@ -654,9 +731,14 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                                 </div>
                             ))
                         ) : (
-                            <p style={{ color: "var(--muted)", fontStyle: "italic", textAlign: "center", padding: "2rem" }}>
-                                El paciente no tiene un plan alimenticio activo.
-                            </p>
+                            <div style={{ textAlign: "center", padding: "2rem", border: "1px dashed var(--line)", borderRadius: "var(--radius-lg)" }}>
+                                <p style={{ color: "var(--muted)", fontStyle: "italic", marginBottom: "1rem" }}>
+                                    El paciente no tiene un plan alimenticio activo.
+                                </p>
+                                <button type="button" className="btn" onClick={openCreatePlan} style={{ background: "var(--primary)", border: "none" }}>
+                                    Crear plan alimenticio
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
@@ -842,6 +924,15 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                 )}
 
             </div>
+
+            <PlanModal
+                plan={selectedPlan}
+                patients={patients}
+                isOpen={planModalOpen}
+                onClose={() => setPlanModalOpen(false)}
+                onSave={handleSavePlan}
+                mode={planModalMode}
+            />
             
         </div>
     );

@@ -571,43 +571,59 @@ function ProfilePage({ onLogout, defaultTab }) {
                             subtitle="Mediciones oficiales registradas por tu nutricionista durante tus consultas."
                         />
 
-                        <div className="pf-form-grid">
-                            <FieldGroup label="Peso actual (kg)" icon="bi-speedometer">
-                                <input
-                                    type="text"
-                                    value={physicalForm.weight ? `${physicalForm.weight} kg` : "Sin registrar"}
-                                    disabled
-                                    style={{ background: "var(--surface-soft)", fontWeight: "600" }}
-                                />
-                            </FieldGroup>
+                        {/* Stat cards 2×2 */}
+                        <div className="pf-stat-row">
+                            {/* Peso */}
+                            <div className="pf-stat-card">
+                                <span className="pf-stat-card-label">
+                                    <i className="bi bi-speedometer" />
+                                    Peso actual
+                                </span>
+                                <span className="pf-stat-card-value">
+                                    {physicalForm.weight ? `${physicalForm.weight} kg` : "—"}
+                                </span>
+                            </div>
 
-                            <FieldGroup label="Estatura" icon="bi-rulers">
-                                <input
-                                    type="text"
-                                    value={physicalForm.height ? `${physicalForm.height} cm` : "Sin registrar"}
-                                    disabled
-                                    style={{ background: "var(--surface-soft)", fontWeight: "600" }}
-                                />
-                            </FieldGroup>
+                            {/* Estatura */}
+                            <div className="pf-stat-card">
+                                <span className="pf-stat-card-label">
+                                    <i className="bi bi-rulers" />
+                                    Estatura
+                                </span>
+                                <span className="pf-stat-card-value">
+                                    {physicalForm.height ? `${physicalForm.height} cm` : "—"}
+                                </span>
+                            </div>
 
-                            <FieldGroup label="IMC Calculado" icon="bi-heart-fill">
-                                <input
-                                    type="text"
-                                    value={calculatedIMC ? `${calculatedIMC} (${Number(calculatedIMC) < 25 ? 'Saludable' : 'Sobrepeso'})` : '--'}
-                                    disabled
-                                    style={{ background: 'var(--surface-soft)', fontWeight: 'bold', color: 'var(--primary-strong)' }}
-                                />
-                            </FieldGroup>
+                            {/* IMC */}
+                            <div className="pf-stat-card">
+                                <span className="pf-stat-card-label">
+                                    <i className="bi bi-heart-fill" />
+                                    IMC calculado
+                                </span>
+                                <span className={`pf-stat-card-value ${calculatedIMC ? "highlight" : ""}`}>
+                                    {calculatedIMC
+                                        ? `${calculatedIMC} — ${Number(calculatedIMC) < 18.5 ? "Bajo peso" : Number(calculatedIMC) < 25 ? "Saludable" : Number(calculatedIMC) < 30 ? "Sobrepeso" : "Obesidad"}`
+                                        : "—"}
+                                </span>
+                            </div>
 
-                            <FieldGroup label="Objetivo Nutricional" icon="bi-bullseye">
-                                <input
-                                    type="text"
-                                    value={physicalForm.target || "Control Calórico"}
-                                    disabled
-                                    style={{ background: "var(--surface-soft)", fontWeight: "600" }}
-                                />
-                            </FieldGroup>
+                            {/* Objetivo */}
+                            <div className="pf-stat-card">
+                                <span className="pf-stat-card-label">
+                                    <i className="bi bi-bullseye" />
+                                    Objetivo nutricional
+                                </span>
+                                <span className="pf-stat-card-value" style={{ fontSize: "0.95rem", letterSpacing: 0 }}>
+                                    {physicalForm.target || "Control Calórico"}
+                                </span>
+                            </div>
                         </div>
+
+                        <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                            <i className="bi bi-info-circle" />
+                            Solo tu nutricionista puede modificar estos datos durante la consulta.
+                        </p>
                     </div>
                 )}
 
@@ -620,35 +636,31 @@ function ProfilePage({ onLogout, defaultTab }) {
                             subtitle="Información clínica y alergias evaluadas por tu nutricionista."
                         />
 
-                        <div className="field">
-                            <label>Alergias Registradas</label>
-                            <input
-                                type="text"
-                                value={medicalForm.allergies || "Ninguna registrada"}
-                                disabled
-                                style={{ background: "var(--surface-soft)" }}
-                            />
+                        <div className="pf-info-field">
+                            <label><i className="bi bi-exclamation-triangle" style={{ marginRight: "0.35rem", color: "var(--warning)" }} />Alergias registradas</label>
+                            <span className={medicalForm.allergies ? "" : "empty"}>
+                                {medicalForm.allergies || "Ninguna registrada"}
+                            </span>
                         </div>
 
-                        <div className="field" style={{ marginTop: '1rem' }}>
-                            <label>Condiciones Médicas</label>
-                            <input
-                                type="text"
-                                value={medicalForm.conditions || "Ninguna registrada"}
-                                disabled
-                                style={{ background: "var(--surface-soft)" }}
-                            />
+                        <div className="pf-info-field">
+                            <label><i className="bi bi-heart-pulse" style={{ marginRight: "0.35rem", color: "var(--danger)" }} />Condiciones médicas</label>
+                            <span className={medicalForm.conditions ? "" : "empty"}>
+                                {medicalForm.conditions || "Ninguna registrada"}
+                            </span>
                         </div>
 
-                        <div className="field" style={{ marginTop: '1rem' }}>
-                            <label>Observaciones o Indicaciones de tu Especialista</label>
-                            <textarea
-                                value={medicalForm.notes || "Tu especialista agregará notas médicas durante la consulta."}
-                                disabled
-                                rows={4}
-                                style={{ background: 'var(--surface-soft)', resize: 'none' }}
-                            />
+                        <div className="pf-note-field">
+                            <label><i className="bi bi-chat-left-text" style={{ marginRight: "0.35rem", color: "var(--primary)" }} />Observaciones de tu especialista</label>
+                            <div className={`pf-note-content ${medicalForm.notes ? "" : "empty"}`}>
+                                {medicalForm.notes || "Tu especialista agregará notas médicas durante la consulta."}
+                            </div>
                         </div>
+
+                        <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.35rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                            <i className="bi bi-shield-check" style={{ color: "var(--primary)" }} />
+                            Esta información es gestionada exclusivamente por tu nutricionista.
+                        </p>
                     </div>
                 )}
 

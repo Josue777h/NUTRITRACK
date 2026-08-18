@@ -17,7 +17,7 @@ function PatientsPage() {
 
     // Find the currently selected patient object
     const selectedPatient = useMemo(() => {
-        return patients.find(p => p.id === selectedPatientId) || null;
+        return patients.find(p => Number(p.id) === Number(selectedPatientId)) || null;
     }, [selectedPatientId, patients]);
 
     const handleAddPatient = async (patientData) => {
@@ -59,7 +59,7 @@ function PatientsPage() {
 
     // Find last report date for each patient to show in the list card
     const getLastConsultation = (patientId) => {
-        const patientReports = reports.filter(r => r.patientId === patientId);
+        const patientReports = reports.filter(r => Number(r.patientId) === Number(patientId));
         if (patientReports.length === 0) return "Sin consultas";
         const sorted = [...patientReports].sort((a, b) => b.date.localeCompare(a.date));
         return formatDate(sorted[0].date);

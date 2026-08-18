@@ -35,6 +35,7 @@ const defaultState = {
     appointments: isSupabaseConfigured ? [] : seedAppointments,
     plans: isSupabaseConfigured ? [] : seedPlans,
     reports: isSupabaseConfigured ? [] : seedReports,
+    appointmentHistory: [],
     registeredUsers: [],
     registeredNutriologists: []
 };
@@ -68,6 +69,7 @@ function AppProvider({ children }) {
                 appointments: isSupabaseConfigured ? [] : (parsed.appointments ?? defaultState.appointments),
                 plans: isSupabaseConfigured ? [] : (parsed.plans ?? defaultState.plans),
                 reports: isSupabaseConfigured ? [] : (parsed.reports ?? defaultState.reports),
+                appointmentHistory: parsed.appointmentHistory ?? defaultState.appointmentHistory,
                 registeredUsers: parsed.registeredUsers ?? defaultState.registeredUsers,
                 registeredNutriologists: parsed.registeredNutriologists ?? defaultState.registeredNutriologists
             };
@@ -338,6 +340,9 @@ function AppProvider({ children }) {
             }
         }
 
+        // Limpiar localStorage completamente para evitar sesiones fantasma
+        localStorage.removeItem(STORAGE_KEY);
+
         setState((prev) => ({
             ...prev,
             auth: {
@@ -345,8 +350,13 @@ function AppProvider({ children }) {
                 role: null,
                 username: "",
                 fullName: "",
-                patientId: null
-            }
+                patientId: null,
+                uid: null
+            },
+            patients: isSupabaseConfigured ? [] : prev.patients,
+            appointments: isSupabaseConfigured ? [] : prev.appointments,
+            plans: isSupabaseConfigured ? [] : prev.plans,
+            reports: isSupabaseConfigured ? [] : prev.reports
         }));
     };
 
@@ -577,6 +587,72 @@ function AppProvider({ children }) {
         }));
     };
 
+    // Archive/remove from agenda but keep a permanent history copy for download
+    const archiveAppointment = async (appointmentId) => {
+        const found = state.appointments.find((item) => item.id === appointmentId);
+        if (!found) return null;
+
+        const archivedItem = {
+            ...found,
+            archivedAt: new Date().toISOString(),
+            archived: true
+        };
+
+        setState((prev) => ({
+            ...prev,
+            appointments: prev.appointments.filter((item) => item.id !== appointmentId),
+            appointmentHistory: [
+                archivedItem,
+                ...(prev.appointmentHistory || []).filter((item) => item.id !== appointmentId)
+            ]
+        }));
+
+        // Keep a record in Supabase so it remains available in the database
+        if (isSupabaseConfigured) {
+            try {
+                const status = found.status?.toLowerCase() === "completada" ? "Completada" : "Cancelada";
+                await appointmentService.updateAppointment(appointmentId, {
+                    ...found,
+                    status
+                });
+            } catch (error) {
+                console.error("Error al archivar cita en Supabase:", error);
+            }
+        }
+
+        return archivedItem;
+    };
+
+    const deleteAppointmentPermanently = async (appointmentId) => {
+        const found =
+            state.appointments.find((item) => item.id === appointmentId) ||
+            (state.appointmentHistory || []).find((item) => item.id === appointmentId);
+
+        const historyEntry = found
+            ? { ...found, archivedAt: new Date().toISOString(), archived: true }
+            : null;
+
+        setState((prev) => ({
+            ...prev,
+            appointments: prev.appointments.filter((item) => item.id !== appointmentId),
+            appointmentHistory: historyEntry
+                ? [
+                    historyEntry,
+                    ...(prev.appointmentHistory || []).filter((item) => item.id !== appointmentId)
+                ]
+                : (prev.appointmentHistory || [])
+        }));
+
+        // Keep in Supabase (mark cancelled) so the record can still be exported from DB
+        if (isSupabaseConfigured) {
+            try {
+                await appointmentService.cancelAppointment(appointmentId);
+            } catch (error) {
+                console.error("Error al marcar cita eliminada en Supabase:", error);
+            }
+        }
+    };
+
     const addPlan = async (payload) => {
         let newPlan = {
             patientId: Number(payload.patientId),
@@ -669,7 +745,11 @@ function AppProvider({ children }) {
             date: payload.date,
             weight: Number(payload.weight),
             bmi: Number(payload.bmi),
-            calories: Number(payload.calories)
+            calories: Number(payload.calories),
+            notes: payload.notes || "",
+            feeling: payload.feeling || "",
+            observations: payload.observations || "",
+            diagnosis: payload.diagnosis || ""
         };
 
         if (isSupabaseConfigured) {
@@ -677,6 +757,7 @@ function AppProvider({ children }) {
                 const saved = await reportService.createReport(newReport);
                 if (saved) {
                     newReport = {
+                        ...newReport,
                         id: saved.id,
                         patientId: saved.patient_id,
                         date: saved.date,
@@ -917,6 +998,7 @@ function AppProvider({ children }) {
             appointments: state.appointments,
             plans: state.plans,
             reports: state.reports,
+            appointmentHistory: state.appointmentHistory || [],
             profiles: state.profiles,
             registeredUsers: state.registeredUsers,
             registeredNutriologists: state.registeredNutriologists,
@@ -928,6 +1010,8 @@ function AppProvider({ children }) {
             addAppointment,
             updateAppointment,
             cancelAppointment,
+            archiveAppointment,
+            deleteAppointmentPermanently,
             addPlan,
             updatePlan,
             removePlan,

@@ -39,7 +39,7 @@ function formatDate(dateValue) {
     });
 }
 
-function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm, onCancel }) {
+function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm, onCancel, onRemove }) {
     const statusKey = slot.status?.toLowerCase() ?? "pendiente";
     const si  = STATUS_MAP[statusKey] ?? STATUS_MAP.pendiente;
     const pillClass = STATUS_PILL_CLASS[statusKey] ?? "pendiente";
@@ -49,7 +49,6 @@ function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm
 
     return (
         <article className="appt-card-v2">
-            {/* Header: fecha + estado */}
             <div className="appt-card-header">
                 <div className="appt-date-block">
                     <div className="appt-calendar-icon">
@@ -70,7 +69,6 @@ function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm
                 </span>
             </div>
 
-            {/* Details box */}
             <div className="appt-details-box">
                 {isNutri && (
                     <div className="appt-patient-row">
@@ -89,7 +87,6 @@ function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm
                 )}
             </div>
 
-            {/* Notes */}
             {slot.notes && (
                 <p className="appt-notes-row">
                     <i className="bi bi-chat-left-quote" />
@@ -97,7 +94,6 @@ function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm
                 </p>
             )}
 
-            {/* Actions */}
             <div className="appt-actions-row">
                 <button className="btn secondary small" type="button" onClick={onView}>
                     <i className="bi bi-eye" /> Detalles
@@ -109,13 +105,31 @@ function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm
                                 <i className="bi bi-check-circle" /> Confirmar
                             </button>
                         )}
-                        <button className="btn ghost small" type="button" onClick={onEdit}>
-                            <i className="bi bi-pencil" /> Editar
-                        </button>
+                        {isMutable && (
+                            <button className="btn ghost small" type="button" onClick={onEdit}>
+                                <i className="bi bi-pencil" /> Editar
+                            </button>
+                        )}
                         {isMutable && (
                             <button className="btn danger small" type="button" onClick={onCancel}>
                                 <i className="bi bi-x-circle" /> Cancelar
                             </button>
+                        )}
+                        {!slot.archived && (
+                            <button
+                                className="btn danger small"
+                                type="button"
+                                onClick={onRemove}
+                                title="Quitar de la agenda (se guarda en historial)"
+                                style={{ background: "transparent", color: "var(--danger)", border: "1px solid var(--danger)" }}
+                            >
+                                <i className="bi bi-trash" /> Eliminar
+                            </button>
+                        )}
+                        {slot.archived && (
+                            <span style={{ fontSize: "0.72rem", color: "var(--muted)", alignSelf: "center" }}>
+                                Guardada en historial
+                            </span>
                         )}
                     </>
                 )}
@@ -125,7 +139,16 @@ function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm
 }
 
 function AppointmentsPage() {
-    const { auth, patients, appointments, addAppointment, updateAppointment, cancelAppointment } = useApp();
+    const {
+        auth,
+        patients,
+        appointments,
+        appointmentHistory,
+        addAppointment,
+        updateAppointment,
+        cancelAppointment,
+        archiveAppointment
+    } = useApp();
     const { showSuccess, showWarning } = useToast();
     const isNutri = auth.role === "nutriologo";
 
@@ -142,6 +165,22 @@ function AppointmentsPage() {
         return [...source].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
     }, [appointments, auth.patientId, isNutri]);
 
+    const historyList = useMemo(() => {
+        const fromActive = allVisible.filter(
+            (a) => a.status?.toLowerCase() === "completada" || a.status?.toLowerCase() === "cancelada"
+        );
+        const archived = (appointmentHistory || []).filter((a) =>
+            isNutri || Number(a.patientId) === Number(auth.patientId)
+        );
+        const byId = new Map();
+        [...fromActive, ...archived].forEach((item) => {
+            byId.set(item.id, item);
+        });
+        return [...byId.values()].sort((a, b) =>
+            `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
+        );
+    }, [allVisible, appointmentHistory, auth.patientId, isNutri]);
+
     const filteredAppointments = useMemo(() => {
         let list = allVisible;
         if (activeFilter !== "todas") {
@@ -150,7 +189,7 @@ function AppointmentsPage() {
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             list = list.filter((a) => {
-                const name = patients.find((p) => p.id === a.patientId)?.name ?? "";
+                const name = patients.find((p) => Number(p.id) === Number(a.patientId))?.name ?? "";
                 return (
                     name.toLowerCase().includes(q) ||
                     formatDate(a.date).toLowerCase().includes(q) ||
@@ -161,12 +200,13 @@ function AppointmentsPage() {
         return list;
     }, [allVisible, activeFilter, searchQuery, patients]);
 
-    const getPatientName = (id) => patients.find((p) => p.id === id)?.name ?? "Paciente";
+    const getPatientName = (id) =>
+        patients.find((p) => Number(p.id) === Number(id))?.name ?? "Paciente";
 
     const upcoming = filteredAppointments.filter(
         (a) => a.status?.toLowerCase() !== "cancelada" && a.status?.toLowerCase() !== "completada"
     );
-    const past = filteredAppointments.filter(
+    const pastOnAgenda = filteredAppointments.filter(
         (a) => a.status?.toLowerCase() === "completada" || a.status?.toLowerCase() === "cancelada"
     );
 
@@ -196,16 +236,67 @@ function AppointmentsPage() {
         }
     };
 
-    const handleDelete = (id) => {
+    const handleCancel = (id) => {
         cancelAppointment(id);
-        showWarning("Cita cancelada.");
+        showWarning("Cita cancelada. Queda en el historial.");
         closeModal();
+    };
+
+    const handleRemove = (id) => {
+        archiveAppointment(id);
+        showSuccess("Cita eliminada de la agenda y guardada en historial.");
+        closeModal();
+    };
+
+    const confirmRemove = (id) => {
+        if (!window.confirm("¿Quitar esta cita de la agenda? Se guardará en el historial para poder descargarla.")) {
+            return;
+        }
+        handleRemove(id);
+    };
+
+    const downloadHistory = () => {
+        if (!historyList.length) {
+            showWarning("No hay citas en el historial para descargar.");
+            return;
+        }
+
+        const rows = [
+            ["ID", "Paciente", "Fecha", "Hora", "Estado", "Tipo", "Duracion", "Motivo", "Notas", "Archivado"]
+        ];
+
+        historyList.forEach((a) => {
+            rows.push([
+                a.id,
+                getPatientName(a.patientId),
+                a.date,
+                a.time,
+                a.status,
+                a.type || "",
+                a.duration || "",
+                (a.reason || "").replace(/"/g, '""'),
+                (a.notes || "").replace(/"/g, '""'),
+                a.archivedAt || ""
+            ]);
+        });
+
+        const csv = rows
+            .map((row) => row.map((cell) => `"${cell ?? ""}"`).join(","))
+            .join("\n");
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `historial-citas-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showSuccess("Historial de citas descargado.");
     };
 
     return (
         <section className="single-panel">
             <article className="panel">
-                {/* ── Header ── */}
                 <div className="panel-header">
                     <div>
                         <h3 className="panel-title">
@@ -218,18 +309,24 @@ function AppointmentsPage() {
                                 : "Consulta las citas agendadas por tu nutricionista."}
                         </p>
                     </div>
-                    {isNutri && (
-                        <button className="btn" type="button" onClick={() => openModal("add")}>
-                            <i className="bi bi-calendar-plus" />
-                            Agregar cita
-                        </button>
-                    )}
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {historyList.length > 0 && (
+                            <button className="btn secondary" type="button" onClick={downloadHistory}>
+                                <i className="bi bi-download" />
+                                Descargar historial
+                            </button>
+                        )}
+                        {isNutri && (
+                            <button className="btn" type="button" onClick={() => openModal("add")}>
+                                <i className="bi bi-calendar-plus" />
+                                Agregar cita
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                {/* ── Search + Filter bar ── */}
                 {allVisible.length > 0 && (
                     <div style={{ marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                        {/* Search input */}
                         {isNutri && (
                             <div className="field" style={{ maxWidth: "320px", margin: 0 }}>
                                 <div style={{ position: "relative" }}>
@@ -248,7 +345,6 @@ function AppointmentsPage() {
                             </div>
                         )}
 
-                        {/* Filter pills */}
                         <div className="filter-pills-bar">
                             {FILTERS.map((f) => {
                                 const count = f.key === "todas"
@@ -285,7 +381,6 @@ function AppointmentsPage() {
                     </div>
                 )}
 
-                {/* ── Upcoming ── */}
                 {upcoming.length > 0 && (
                     <>
                         <p className="appt-section-label">
@@ -293,7 +388,7 @@ function AppointmentsPage() {
                             {isNutri ? "Próximas y activas" : "Mis próximas citas"}
                             <span className="appt-count">{upcoming.length}</span>
                         </p>
-                        <div className="appt-grid" style={{ marginBottom: past.length > 0 ? "1.75rem" : 0 }}>
+                        <div className="appt-grid" style={{ marginBottom: pastOnAgenda.length > 0 || historyList.length > 0 ? "1.75rem" : 0 }}>
                             {upcoming.map((slot) => (
                                 <AppointmentCard
                                     key={slot.id}
@@ -306,40 +401,46 @@ function AppointmentsPage() {
                                         updateAppointment(slot.id, { ...slot, status: "Confirmada" });
                                         showSuccess("Cita confirmada.");
                                     }}
-                                    onCancel={() => handleDelete(slot.id)}
+                                    onCancel={() => handleCancel(slot.id)}
+                                    onRemove={() => confirmRemove(slot.id)}
                                 />
                             ))}
                         </div>
                     </>
                 )}
 
-                {/* ── History ── */}
-                {past.length > 0 && (
+                {(pastOnAgenda.length > 0 || historyList.length > 0) && (
                     <>
-                        <p className="appt-section-label">
-                            <i className="bi bi-clock-history" />
-                            Historial
-                            <span className="appt-count">{past.length}</span>
-                        </p>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+                            <p className="appt-section-label" style={{ margin: 0 }}>
+                                <i className="bi bi-clock-history" />
+                                Historial
+                                <span className="appt-count">{historyList.length}</span>
+                            </p>
+                            <button className="btn secondary small" type="button" onClick={downloadHistory}>
+                                <i className="bi bi-download" />
+                                Descargar CSV
+                            </button>
+                        </div>
                         <div className="appt-grid">
-                            {past.map((slot) => (
+                            {historyList.map((slot) => (
                                 <AppointmentCard
-                                    key={slot.id}
+                                    key={`hist-${slot.id}-${slot.archivedAt || slot.status}`}
                                     slot={slot}
                                     isNutri={isNutri}
                                     patientName={getPatientName(slot.patientId)}
                                     onView={() => openModal("view", slot)}
                                     onEdit={() => openModal("edit", slot)}
                                     onConfirm={() => {}}
-                                    onCancel={() => handleDelete(slot.id)}
+                                    onCancel={() => handleCancel(slot.id)}
+                                    onRemove={() => confirmRemove(slot.id)}
                                 />
                             ))}
                         </div>
                     </>
                 )}
 
-                {/* ── Empty state ── */}
-                {filteredAppointments.length === 0 && (
+                {filteredAppointments.length === 0 && historyList.length === 0 && (
                     <div className="empty-state-block">
                         <div className="empty-state-icon">
                             <i className="bi bi-calendar3-event" />
@@ -376,7 +477,7 @@ function AppointmentsPage() {
                 isOpen={isModalOpen}
                 onClose={closeModal}
                 onSave={handleSave}
-                onDelete={isNutri ? handleDelete : undefined}
+                onDelete={isNutri ? handleRemove : undefined}
                 mode={isNutri ? modalMode : "view"}
             />
         </section>

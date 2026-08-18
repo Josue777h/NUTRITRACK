@@ -63,10 +63,10 @@ function LoginPage({ onLogin }) {
     };
 
     const features = [
-        { icon: "bi-people-fill",        title: "Gestión de pacientes",      desc: "Expedientes clínicos completos" },
-        { icon: "bi-apple",              title: "Planes alimenticios",        desc: "Diseño nutricional personalizado" },
-        { icon: "bi-graph-up-arrow",     title: "Seguimiento nutricional",   desc: "Reportes de progreso en tiempo real" },
-        { icon: "bi-calendar3-event-fill", title: "Agenda inteligente",      desc: "Control de citas y recordatorios" },
+        { icon: "bi-people-fill", title: "Gestión de pacientes", desc: "Expedientes clínicos completos" },
+        { icon: "bi-apple", title: "Planes alimenticios", desc: "Diseño nutricional personalizado" },
+        { icon: "bi-graph-up-arrow", title: "Seguimiento nutricional", desc: "Reportes de progreso en tiempo real" },
+        { icon: "bi-calendar3-event-fill", title: "Agenda inteligente", desc: "Control de citas y recordatorios" },
     ];
 
     return (
@@ -83,7 +83,7 @@ function LoginPage({ onLogin }) {
                 <div className="login-info">
                     <div className="login-brand" onClick={handleLogoClick} title="Haz clic 5 veces para modo demo" style={{ cursor: "pointer" }}>
                         <span className="login-logo-icon">
-                            <i className="bi bi-heart-pulse-fill" />
+                            <img src="/logonutri.png" alt="Logo" />
                         </span>
                         <span className="login-brand-name">NutriTrack</span>
                     </div>

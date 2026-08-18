@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 
-import AddPatientModal    from "../components/AddPatientModal";
-import AppointmentModal   from "../components/AppointmentModal";
-import PlanModal          from "../components/PlanModal";
-import ReportModal        from "../components/ReportModal";
+import AddPatientModal from "../components/AddPatientModal";
+import AppointmentModal from "../components/AppointmentModal";
+import PlanModal from "../components/PlanModal";
+import ReportModal from "../components/ReportModal";
 
 function formatDate(dateValue) {
     if (!dateValue) return "";
@@ -26,14 +26,14 @@ function DashboardPage() {
     const navigate = useNavigate();
     const { showSuccess, showWarning } = useToast();
     const { auth, patients, appointments, plans, reports,
-            addPatient, addAppointment, addPlan, addReport } = useApp();
+        addPatient, addAppointment, addPlan, addReport } = useApp();
 
     const isNutri = auth.role === "nutriologo";
 
-    const [isPatientModalOpen,     setIsPatientModalOpen]     = useState(false);
+    const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
     const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
-    const [isPlanModalOpen,        setIsPlanModalOpen]        = useState(false);
-    const [isReportModalOpen,      setIsReportModalOpen]      = useState(false);
+    const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
     const currentPatient = useMemo(() => {
         if (auth.role !== "usuario" || !auth.patientId) return null;
@@ -61,10 +61,10 @@ function DashboardPage() {
     const getPatientName = (id) => patients.find((p) => p.id === id)?.name ?? "Paciente";
 
     /* ── Handlers ── */
-    const handleSavePatient     = async (d) => { await addPatient(d); showSuccess("Paciente registrado."); setIsPatientModalOpen(false); };
+    const handleSavePatient = async (d) => { await addPatient(d); showSuccess("Paciente registrado."); setIsPatientModalOpen(false); };
     const handleSaveAppointment = (d) => { addAppointment(d); showSuccess("Cita agendada."); setIsAppointmentModalOpen(false); };
-    const handleSavePlan        = (d) => { addPlan(d); showSuccess("Plan creado."); setIsPlanModalOpen(false); };
-    const handleSaveReport      = (d) => { addReport(d); showSuccess("Consulta registrada."); setIsReportModalOpen(false); };
+    const handleSavePlan = (d) => { addPlan(d); showSuccess("Plan creado."); setIsPlanModalOpen(false); };
+    const handleSaveReport = (d) => { addReport(d); showSuccess("Consulta registrada."); setIsReportModalOpen(false); };
 
     const openAppointmentModal = () => {
         if (!patients.length) { showWarning("Primero registra un paciente."); setIsPatientModalOpen(true); }
@@ -96,24 +96,24 @@ function DashboardPage() {
         ).length;
 
         const metrics = [
-            { label: "Pacientes activos", value: patients.length,     icon: "bi-people",        color: "var(--primary)" },
-            { label: "Citas de hoy",      value: agendaHoy.length,    icon: "bi-calendar-check", color: "var(--secondary)" },
-            { label: "Pendientes",        value: pendingSeguimientos, icon: "bi-chat-left-dots",  color: "var(--accent)" },
-            { label: "Nuevos (mes)",      value: newPatientsCount,    icon: "bi-person-plus",     color: "#8b5cf6" },
+            { label: "Pacientes activos", value: patients.length, icon: "bi-people", color: "var(--primary)" },
+            { label: "Citas de hoy", value: agendaHoy.length, icon: "bi-calendar-check", color: "var(--secondary)" },
+            { label: "Pendientes", value: pendingSeguimientos, icon: "bi-chat-left-dots", color: "var(--accent)" },
+            { label: "Nuevos (mes)", value: newPatientsCount, icon: "bi-person-plus", color: "#8b5cf6" },
         ];
 
         const actions = [
-            { label: "Registrar paciente", icon: "bi-person-plus",      bg: "var(--primary)",   onClick: () => setIsPatientModalOpen(true) },
-            { label: "Agendar cita",       icon: "bi-calendar-plus",    bg: "var(--secondary)", onClick: openAppointmentModal },
-            { label: "Crear plan",         icon: "bi-apple",            bg: "#7c3aed",          onClick: openPlanModal },
-            { label: "Registrar consulta", icon: "bi-clipboard2-pulse", bg: "#0ea5e9",          onClick: openReportModal },
+            { label: "Registrar paciente", icon: "bi-person-plus", bg: "var(--primary)", onClick: () => setIsPatientModalOpen(true) },
+            { label: "Agendar cita", icon: "bi-calendar-plus", bg: "var(--secondary)", onClick: openAppointmentModal },
+            { label: "Crear plan", icon: "bi-apple", bg: "#7c3aed", onClick: openPlanModal },
+            { label: "Registrar consulta", icon: "bi-clipboard2-pulse", bg: "#0ea5e9", onClick: openReportModal },
         ];
 
         return (
             <div className="dash-grid">
                 {/* Greeting */}
                 <div className="dash-greeting">
-                    <h3>{getGreeting()}, {greetingName} 👋</h3>
+                    <h3>{getGreeting()}, {greetingName} </h3>
                     <p>Gestiona tus citas del día, interactúa con tus pacientes y consulta tu agenda clínica.</p>
                 </div>
 
@@ -212,10 +212,10 @@ function DashboardPage() {
                 </div>
 
                 {/* Modals */}
-                <AddPatientModal   isOpen={isPatientModalOpen}     onClose={() => setIsPatientModalOpen(false)}     onSave={handleSavePatient} />
-                <AppointmentModal  isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} mode="add" />
-                <PlanModal         isOpen={isPlanModalOpen}        onClose={() => setIsPlanModalOpen(false)}        onSave={handleSavePlan}        patients={patients} mode="add" />
-                <ReportModal       isOpen={isReportModalOpen}      onClose={() => setIsReportModalOpen(false)}      onSave={handleSaveReport}      patients={patients} mode="add" />
+                <AddPatientModal isOpen={isPatientModalOpen} onClose={() => setIsPatientModalOpen(false)} onSave={handleSavePatient} />
+                <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} patients={patients} mode="add" />
+                <PlanModal isOpen={isPlanModalOpen} onClose={() => setIsPlanModalOpen(false)} onSave={handleSavePlan} patients={patients} mode="add" />
+                <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} onSave={handleSaveReport} patients={patients} mode="add" />
             </div>
         );
     }
@@ -247,7 +247,7 @@ function DashboardPage() {
         return (
             <div className="dash-grid" style={{ maxWidth: 640, margin: "0 auto" }}>
                 <div className="patient-welcome">
-                    <h3>¡Hola, {getFirstName(auth.fullName)}! 👋</h3>
+                    <h3>¡Hola, {getFirstName(auth.fullName)}! </h3>
                     <p>Bienvenido a tu portal de salud NutriTrack.</p>
                 </div>
                 <div className="panel" style={{ textAlign: "center", padding: "2rem 1.5rem" }}>
@@ -266,7 +266,7 @@ function DashboardPage() {
         <div className="dash-grid" style={{ maxWidth: 640, margin: "0 auto" }}>
             {/* Bienvenida */}
             <div className="patient-welcome">
-                <h3>¡Hola, {getFirstName(auth.fullName)}! 👋</h3>
+                <h3>¡Hola, {getFirstName(auth.fullName)}! </h3>
                 <p>Bienvenido a tu portal de salud NutriTrack.</p>
             </div>
 

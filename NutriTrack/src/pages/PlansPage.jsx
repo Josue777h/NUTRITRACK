@@ -17,11 +17,11 @@ function PlansPage() {
     const visiblePlans = useMemo(() => {
         const patientIdNum = Number(selectedPatientId);
         if (!patientIdNum) return [];
-        return plans.filter((item) => item.patientId === patientIdNum);
+        return plans.filter((item) => Number(item.patientId) === patientIdNum);
     }, [plans, selectedPatientId]);
 
     const getPatientName = (patientId) =>
-        patients.find((item) => item.id === patientId)?.name ?? "Paciente";
+        patients.find((item) => Number(item.id) === Number(patientId))?.name ?? "Paciente";
 
     const handleViewDetails = (plan) => {
         setSelectedPlan(plan);

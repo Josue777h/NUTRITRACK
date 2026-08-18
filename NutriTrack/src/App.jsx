@@ -23,9 +23,9 @@ function App() {
         return result;
     };
 
-    const handleLogout = () => {
-        logout();
-        navigate("/login");
+    const handleLogout = async () => {
+        await logout();
+        navigate("/login", { replace: true });
     };
 
     const withLayout = (page, allowedRoles) => (

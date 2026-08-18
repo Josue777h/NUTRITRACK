@@ -116,12 +116,10 @@ const AppointmentModal = ({ appointment, patients = [], isOpen, onClose, onSave,
     };
 
     const handleDelete = () => {
-        if (window.confirm('¿Estás seguro de eliminar esta cita?')) {
+        if (window.confirm('¿Quitar esta cita de la agenda? Se guardará en el historial para poder descargarla.')) {
             if (onDelete && appointment?.id) {
                 onDelete(appointment.id);
             }
-            showSuccess('Cita eliminada correctamente');
-            onClose();
         }
     };
 
