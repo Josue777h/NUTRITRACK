@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import { isSupabaseConfigured } from "../services/supabaseClient";
+import { userService } from "../services/userService";
 
 const initialForm = {
     email: "",
@@ -14,8 +15,6 @@ function LoginPage({ onLogin }) {
     const [form, setForm] = useState(initialForm);
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [clickCount, setClickCount] = useState(0);
-    const [showDemoAccess, setShowDemoAccess] = useState(false);
 
     const handleChange = (event) => {
         const { name, value, type, checked } = event.target;
@@ -43,23 +42,22 @@ function LoginPage({ onLogin }) {
         }
     };
 
-    const handleLogoClick = () => {
-        const nextCount = clickCount + 1;
-        setClickCount(nextCount);
-        if (nextCount >= 5) {
-            setShowDemoAccess(!showDemoAccess);
-            setClickCount(0);
-            showSuccess("Acceso rápido de demostración desbloqueado.");
-        }
-    };
-
-    const handleQuickLogin = (email, password) => {
-        setForm({ email, password, rememberMe: true });
-    };
-
-    const handleForgotPassword = (e) => {
+    const handleForgotPassword = async (e) => {
         e.preventDefault();
-        showWarning("Credenciales de acceso — Nutriólogo: josuesepulvedassj@gmail.com / josue123 · Paciente: josuexdsepulveda@gmail.com / josue123");
+        if (!form.email.trim()) {
+            showWarning("Introduce tu correo para recibir el enlace de restablecimiento.");
+            return;
+        }
+        if (!isSupabaseConfigured) {
+            showError("El restablecimiento requiere una conexión configurada con Supabase.");
+            return;
+        }
+        try {
+            await userService.resetPassword(form.email.trim().toLowerCase());
+            showSuccess("Si el correo existe, recibirás un enlace para restablecer la contraseña.");
+        } catch {
+            showError("No fue posible solicitar el restablecimiento. Intenta de nuevo.");
+        }
     };
 
     const features = [
@@ -81,7 +79,7 @@ function LoginPage({ onLogin }) {
             <article className="login-card">
                 {/* ── Columna izquierda ── */}
                 <div className="login-info">
-                    <div className="login-brand" onClick={handleLogoClick} title="Haz clic 5 veces para modo demo" style={{ cursor: "pointer" }}>
+                    <div className="login-brand">
                         <span className="login-logo-icon">
                             <img src="/logonutri.png" alt="Logo" />
                         </span>
@@ -107,37 +105,6 @@ function LoginPage({ onLogin }) {
                         ))}
                     </ul>
 
-                    {showDemoAccess && (
-                        <div className="demo-panel">
-                            <span className="demo-panel-label">
-                                <i className="bi bi-lightning-charge-fill" /> Acceso Rápido Demo
-                            </span>
-                            <div className="demo-btns">
-                                <button
-                                    type="button"
-                                    className="demo-btn demo-nutriologo"
-                                    onClick={() => handleQuickLogin("josuesepulvedassj@gmail.com", "josue123")}
-                                >
-                                    <i className="bi bi-person-badge-fill" />
-                                    <span>
-                                        <strong>Nutriólogo</strong>
-                                        <small>josuesepulvedassj@gmail.com</small>
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="demo-btn demo-paciente"
-                                    onClick={() => handleQuickLogin("josuexdsepulveda@gmail.com", "josue123")}
-                                >
-                                    <i className="bi bi-person-heart" />
-                                    <span>
-                                        <strong>Paciente</strong>
-                                        <small>josuexdsepulveda@gmail.com</small>
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* ── Columna derecha (formulario) ── */}
@@ -153,7 +120,7 @@ function LoginPage({ onLogin }) {
                     <form className="login-form" onSubmit={handleSubmit} noValidate>
                         <header className="login-form-header">
                             <h2>Iniciar sesión</h2>
-                            <p>Bienvenido de nuevo. Introduce tus credenciales para acceder.</p>
+                            <p>Introduce tu correo y contraseña para acceder a tu cuenta.</p>
                         </header>
 
                         <div className="field">

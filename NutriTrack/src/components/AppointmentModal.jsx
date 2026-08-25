@@ -4,7 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { useApp } from '../context/AppContext';
 
 const AppointmentModal = ({ appointment, patients = [], isOpen, onClose, onSave, onDelete, mode = 'view' }) => {
-    const { showSuccess, showError } = useToast();
+    const { showError } = useToast();
     const { auth } = useApp();
     const [isEditing, setIsEditing] = useState(mode === 'edit');
     const [form, setForm] = useState({

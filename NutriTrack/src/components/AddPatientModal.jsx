@@ -1,15 +1,15 @@
-import { useState, useMemo } from 'react';
+import { validationErrors, useState, useMemo } from 'react';
 import Modal from './Modal';
 import { useToast } from '../context/ToastContext';
 
 const AddPatientModal = ({ isOpen, onClose, onSave }) => {
-    const { showSuccess, showError } = useToast();
+    const { showError } = useToast();
     const [step, setStep] = useState(1);
 
     const initialForm = {
         name: '',
         email: '',
-        phone: '',
+        phone : '',
         age: '',
         gender: 'femenino',
         weight: '',
@@ -40,7 +40,7 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
     const handleNext = () => {
         if (step === 1) {
             if (!form.name.trim() || !form.age || !form.email.trim()) {
-                showError("Completa todos los campos obligatorios de información personal.");
+                showError("nCompleta todos los campos obligatorios de información personal.");
                 return;
             }
             setStep(2);
@@ -52,7 +52,7 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
             setStep(3);
         } else if (step === 3) {
             if (!form.target || !form.calories) {
-                showError("Completa el objetivo y calorías del paciente.");
+                showError("Completa el objetivo y calorias del paciente.");
                 return;
             }
             setStep(4);
@@ -90,15 +90,12 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
         onClose();
     };
 
-    const renderStepLabel = () => {
-        switch (step) {
-            case 1: return "Paso 1: Información Personal";
-            case 2: return "Paso 2: Información Física";
-            case 3: return "Paso 3: Objetivos del Tratamiento";
-            case 4: return "Paso 4: Información Médica";
-            default: return "";
-        }
-    };
+    const stepTitles = [
+        "1. Información Personal",
+        "2. Mediciones Físicas",
+        "3. Objetivos Clínicos",
+        "4. Historial Médico"
+    ];
 
     return (
         <Modal
@@ -107,59 +104,66 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
             title="Agregar Nuevo Paciente"
             size="medium"
         >
-            <div className="step-indicator" style={{ marginBottom: '1.5rem' }}>
-                <div className={`step-node ${step === 1 ? 'active' : step > 1 ? 'completed' : ''}`}>1</div>
-                <div className={`step-node ${step === 2 ? 'active' : step > 2 ? 'completed' : ''}`}>2</div>
-                <div className={`step-node ${step === 3 ? 'active' : step > 3 ? 'completed' : ''}`}>3</div>
-                <div className={`step-node ${step === 4 ? 'active' : step > 4 ? 'completed' : ''}`}>4</div>
+            {/* Header del Asistente (Stepper) sin números feos */}
+            <div style={{ marginBottom: '1.25rem', background: 'var(--surface-soft)', padding: '0.85rem 1rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                    <span className="badge" style={{ background: 'var(--primary-soft)', color: 'var(--primary-strong)', fontWeight: 700, fontSize: '0.78rem' }}>
+                        Paso {step} de 4
+                    </span>
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--text)' }}>
+                        {stepTitles[step - 1]}
+                    </strong>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'var(--line)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{
+                        width: `${(step / 4) * 100}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, var(--primary), var(--secondary))',
+                        transition: 'width 0.3s ease'
+                    }} />
+                </div>
             </div>
-
-            <h4 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '1rem', color: 'var(--text-light)' }}>
-                {renderStepLabel()}
-            </h4>
 
             {step === 1 && (
                 <div style={{ display: 'grid', gap: '1rem' }}>
                     <div className="field">
-                        <label htmlFor="name">Nombre completo *</label>
+                        <label htmlFor="name">Nombre completo del paciente *</label>
                         <input
                             id="name"
                             name="name"
                             type="text"
                             value={form.name}
                             onChange={handleChange}
-                            placeholder="Nombre y apellido"
+                            placeholder="Ej: María Rodríguez"
+                            required
+                        />
+                    </div>
+                    <div className="field">
+                        <label htmlFor="email">Correo electrónico *</label>
+                        <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            value={form.email}
+                            onChange={handleChange}
+                            placeholder="paciente@ejemplo.com"
                             required
                         />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div className="field">
-                            <label htmlFor="email">Correo electrónico *</label>
-                            <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                value={form.email}
-                                onChange={handleChange}
-                                placeholder="correo@ejemplo.com"
-                                required
-                            />
-                        </div>
-                        <div className="field">
-                            <label htmlFor="phone">Teléfono</label>
+                            <label htmlFor="phone">Teléfono de contacto</label>
                             <input
                                 id="phone"
                                 name="phone"
-                                type="text"
+                                type="tel"
                                 value={form.phone}
                                 onChange={handleChange}
-                                placeholder="+57 300 000 0000"
+                                placeholder="+57 300 123 4567"
                             />
                         </div>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div className="field">
-                            <label htmlFor="age">Edad *</label>
+                            <label htmlFor="age">Edad (años) *</label>
                             <input
                                 id="age"
                                 name="age"
@@ -170,21 +174,21 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                                 required
                             />
                         </div>
-                        <div className="field">
-                            <label htmlFor="gender">Género</label>
-                            <select id="gender" name="gender" value={form.gender} onChange={handleChange}>
-                                <option value="femenino">Femenino</option>
-                                <option value="masculino">Masculino</option>
-                                <option value="otro">Otro</option>
-                            </select>
-                        </div>
+                    </div>
+                    <div className="field">
+                        <label htmlFor="gender">Género</label>
+                        <select id="gender" name="gender" value={form.gender} onChange={handleChange}>
+                            <option value="femenino">Femenino</option>
+                            <option value="masculino">Masculino</option>
+                            <option value="otro">Otro</option>
+                        </select>
                     </div>
                     <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                        <button type="button" className="btn secondary" onClick={handleClose}>
+                        <button type="button" className="button secondary" onClick={handleClose}>
                             Cancelar
                         </button>
-                        <button type="button" className="btn" onClick={handleNext} style={{ background: 'var(--primary)', border: 'none' }}>
-                            Siguiente
+                        <button type="button" className="button" onClick={handleNext} style={{ background: 'var(--primary)', border: 'none' }}>
+                            Siguiente <i className="bi bi-arrow-right" style={{ marginLeft: '0.3rem' }} />
                         </button>
                     </div>
                 </div>
@@ -194,7 +198,7 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                 <div style={{ display: 'grid', gap: '1rem' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div className="field">
-                            <label htmlFor="weight">Peso (kg) *</label>
+                            <label htmlFor="weight">Peso actual (kg) *</label>
                             <input
                                 id="weight"
                                 name="weight"
@@ -223,17 +227,17 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                         <label>IMC Estimado</label>
                         <input
                             type="text"
-                            value={imcValue ? `${imcValue} (${Number(imcValue) < 25 ? 'Normal' : 'Sobrepeso'})` : '--'}
+                            value={imcValue ? `${imcValue} (${Number(imcValue) < 18.5 ? 'Bajo Peso' : Number(imcValue) < 25 ? 'Normal' : 'Sobrepeso'})` : '--'}
                             disabled
-                            style={{ background: 'var(--surface-soft)', fontWeight: '600' }}
+                            style={{ background: 'var(--surface-soft)', fontWeight: '600', color: 'var(--primary-strong)' }}
                         />
                     </div>
                     <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                        <button type="button" className="btn secondary" onClick={handleBack}>
-                            Atrás
+                        <button type="button" className="button secondary" onClick={handleBack}>
+                            <i className="bi bi-arrow-left" style={{ marginRight: '0.3rem' }} /> Atrás
                         </button>
-                        <button type="button" className="btn" onClick={handleNext} style={{ background: 'var(--primary)', border: 'none' }}>
-                            Siguiente
+                        <button type="button" className="button" onClick={handleNext} style={{ background: 'var(--primary)', border: 'none' }}>
+                            Siguiente <i className="bi bi-arrow-right" style={{ marginLeft: '0.3rem' }} />
                         </button>
                     </div>
                 </div>
@@ -263,11 +267,11 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                         />
                     </div>
                     <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                        <button type="button" className="btn secondary" onClick={handleBack}>
-                            Atrás
+                        <button type="button" className="button secondary" onClick={handleBack}>
+                            <i className="bi bi-arrow-left" style={{ marginRight: '0.3rem' }} /> Atrás
                         </button>
-                        <button type="button" className="btn" onClick={handleNext} style={{ background: 'var(--primary)', border: 'none' }}>
-                            Siguiente
+                        <button type="button" className="button" onClick={handleNext} style={{ background: 'var(--primary)', border: 'none' }}>
+                            Siguiente <i className="bi bi-arrow-right" style={{ marginLeft: '0.3rem' }} />
                         </button>
                     </div>
                 </div>
@@ -283,7 +287,7 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                             type="text"
                             value={form.allergies}
                             onChange={handleChange}
-                            placeholder="Ej: Lactosa, gluten"
+                            placeholder="Ej: Lactosa, gluten, mariscos"
                         />
                     </div>
                     <div className="field">
@@ -294,7 +298,7 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                             type="text"
                             value={form.conditions}
                             onChange={handleChange}
-                            placeholder="Ej: Diabetes, hipertensión"
+                            placeholder="Ej: Diabetes Tipo 2, hipertensión"
                         />
                     </div>
                     <div className="field">
@@ -304,16 +308,16 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                             name="notes"
                             value={form.notes}
                             onChange={handleChange}
-                            placeholder="Historial médico u observaciones adicionales..."
+                            placeholder="Observaciones iniciales del profesional..."
                             rows="3"
                         />
                     </div>
                     <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                        <button type="button" className="btn secondary" onClick={handleBack}>
-                            Atrás
+                        <button type="button" className="button secondary" onClick={handleBack}>
+                            <i className="bi bi-arrow-left" style={{ marginRight: '0.3rem' }} /> Atrás
                         </button>
-                        <button type="submit" className="btn success" style={{ background: 'var(--primary)', border: 'none' }}>
-                            Guardar Paciente
+                        <button type="submit" className="button success" style={{ background: 'var(--primary)', border: 'none' }}>
+                            <i className="bi bi-check2-circle" style={{ marginRight: '0.4rem' }} /> Guardar Paciente
                         </button>
                     </div>
                 </form>

@@ -1,24 +1,18 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-    seedAppointments,
-    seedPatients,
-    seedPlans,
-    seedProfiles,
-    seedReports
-} from "../data/mockData";
 import { isSupabaseConfigured, supabase } from "../services/supabaseClient";
-import { createClient } from "@supabase/supabase-js";
 import { userService } from "../services/userService";
 import { patientService } from "../services/patientService";
 import { appointmentService } from "../services/appointmentService";
 import { nutritionPlanService } from "../services/nutritionPlanService";
-import { consultationService } from "../services/consultationService";
 import { reportService } from "../services/reportService";
+import auditLogger from "../services/auditService";
+import { PRESET_DIET_TEMPLATES } from "../data/dietTemplates";
 
 const AppContext = createContext(null);
-const STORAGE_KEY = "nutritrack_state_v4";
+const STORAGE_KEY = "nutritrack_state_v5";
 
 const defaultState = {
+    theme: "light",
     auth: {
         isAuthenticated: false,
         role: null,
@@ -26,18 +20,14 @@ const defaultState = {
         fullName: "",
         patientId: null
     },
-    security: {
-        nutriologo: "josue123",
-        usuario: "josue123"
-    },
-    profiles: isSupabaseConfigured ? {} : seedProfiles,
-    patients: isSupabaseConfigured ? [] : seedPatients,
-    appointments: isSupabaseConfigured ? [] : seedAppointments,
-    plans: isSupabaseConfigured ? [] : seedPlans,
-    reports: isSupabaseConfigured ? [] : seedReports,
+    profiles: {},
+    patients: [],
+    appointments: [],
+    plans: [],
+    reports: [],
     appointmentHistory: [],
-    registeredUsers: [],
-    registeredNutriologists: []
+    dailyHabits: {},
+    dietTemplates: PRESET_DIET_TEMPLATES
 };
 
 function getNextId(items) {
@@ -62,16 +52,16 @@ function AppProvider({ children }) {
             return {
                 ...defaultState,
                 ...parsed,
+                theme: parsed.theme || defaultState.theme,
+                dailyHabits: parsed.dailyHabits || {},
+                dietTemplates: parsed.dietTemplates || PRESET_DIET_TEMPLATES,
                 auth: { ...defaultState.auth, ...(parsed.auth ?? {}) },
-                security: { ...defaultState.security, ...(parsed.security ?? {}) },
-                profiles: isSupabaseConfigured ? {} : ({ ...defaultState.profiles, ...(parsed.profiles ?? {}) }),
-                patients: isSupabaseConfigured ? [] : (parsed.patients ?? defaultState.patients),
-                appointments: isSupabaseConfigured ? [] : (parsed.appointments ?? defaultState.appointments),
-                plans: isSupabaseConfigured ? [] : (parsed.plans ?? defaultState.plans),
-                reports: isSupabaseConfigured ? [] : (parsed.reports ?? defaultState.reports),
+                profiles: {},
+                patients: [],
+                appointments: [],
+                plans: [],
+                reports: [],
                 appointmentHistory: parsed.appointmentHistory ?? defaultState.appointmentHistory,
-                registeredUsers: parsed.registeredUsers ?? defaultState.registeredUsers,
-                registeredNutriologists: parsed.registeredNutriologists ?? defaultState.registeredNutriologists
             };
         } catch {
             return defaultState;
@@ -82,121 +72,179 @@ function AppProvider({ children }) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }, [state]);
 
-    // Cargar datos de Supabase si está configurado
     useEffect(() => {
-        if (isSupabaseConfigured) {
-            const loadData = async () => {
-                try {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (session?.user) {
-                        const profile = await userService.getProfile(session.user.id);
-                        const role = profile?.role || "usuario";
-                        const fullName = profile?.full_name || session.user.email;
+        document.documentElement.setAttribute("data-theme", state.theme || "light");
+    }, [state.theme]);
 
-                        // Si es nutriólogo, filtrar sus pacientes específicos de Supabase
-                        const fetchedPatients = await patientService.getPatients(role === "nutriologo" ? session.user.id : null);
-                        
-                        let patientId = null;
-                        let isolatedPatients = [];
-                        let isolatedAppointments = [];
-                        let isolatedPlans = [];
-                        let isolatedReports = [];
+    // ─── Helper: cargar todos los datos del usuario autenticado ───
+    const loadUserData = async (session) => {
+        if (!session?.user) return;
+        const profile = await userService.getProfile(session.user.id);
+        const role = profile?.role || "usuario";
+        const fullName = profile?.full_name || session.user.email;
 
-                        if (role === "nutriologo") {
-                            isolatedPatients = fetchedPatients || [];
-                            
-                            const fetchedAppointments = await appointmentService.getAppointments();
-                            const fetchedPlans = await nutritionPlanService.getPlans();
-                            const fetchedReports = await reportService.getReports();
+        const fetchedPatients = await patientService.getPatients(
+            role === "nutriologo" ? session.user.id : null
+        );
 
-                            const myPatientIds = new Set(isolatedPatients.map(p => Number(p.id)));
-                            
-                            isolatedAppointments = (fetchedAppointments || []).filter(a => myPatientIds.has(Number(a.patient_id)));
-                            isolatedPlans = (fetchedPlans || []).filter(pl => myPatientIds.has(Number(pl.patient_id)));
-                            isolatedReports = (fetchedReports || []).filter(r => myPatientIds.has(Number(r.patient_id)));
-                        } else {
-                            const myPatient = (fetchedPatients || []).find(
-                                (p) => p.user_id === session.user.id || p.email?.toLowerCase() === session.user.email?.toLowerCase()
-                            );
-                            
-                            if (myPatient) {
-                                patientId = myPatient.id;
-                                isolatedPatients = [myPatient];
-                                
-                                const fetchedAppointments = await appointmentService.getAppointments();
-                                const fetchedPlans = await nutritionPlanService.getPlans();
-                                const fetchedReports = await reportService.getReports();
+        let patientId = null;
+        let isolatedPatients = [];
+        let isolatedAppointments = [];
+        let isolatedPlans = [];
+        let isolatedReports = [];
 
-                                isolatedAppointments = (fetchedAppointments || []).filter(a => Number(a.patient_id) === Number(patientId));
-                                isolatedPlans = (fetchedPlans || []).filter(pl => Number(pl.patient_id) === Number(patientId));
-                                isolatedReports = (fetchedReports || []).filter(r => Number(r.patient_id) === Number(patientId));
-                            }
-                        }
-
-                        setState((prev) => ({
-                            ...prev,
-                            auth: {
-                                isAuthenticated: true,
-                                role,
-                                username: session.user.email,
-                                fullName,
-                                patientId,
-                                uid: session.user.id
-                            },
-                            patients: isolatedPatients,
-                            appointments: isolatedAppointments.map((a) => ({
-                                id: a.id,
-                                patientId: a.patient_id,
-                                date: a.date,
-                                time: a.time,
-                                status: a.status,
-                                notes: a.notes,
-                                type: a.type || "consulta",
-                                duration: Number(a.duration) || 30,
-                                reason: a.reason || ""
-                            })),
-                            plans: isolatedPlans.map((p) => ({
-                                id: p.id,
-                                patientId: p.patient_id,
-                                name: p.name,
-                                target: p.target,
-                                calories: p.calories,
-                                duration: p.duration,
-                                meals: p.meals
-                            })),
-                            reports: isolatedReports.map((r) => ({
-                                id: r.id,
-                                patientId: r.patient_id,
-                                date: r.date,
-                                weight: Number(r.weight),
-                                bmi: Number(r.bmi),
-                                calories: Number(r.calories)
-                            }))
-                        }));
-                    } else {
-                        // Limpiar estado en Supabase cuando se cierra sesión
-                        setState((prev) => ({
-                            ...prev,
-                            auth: {
-                                isAuthenticated: false,
-                                role: null,
-                                username: "",
-                                fullName: "",
-                                patientId: null
-                            },
-                            patients: [],
-                            appointments: [],
-                            plans: [],
-                            reports: []
-                        }));
-                    }
-                } catch (error) {
-                    console.error("Error al cargar datos desde Supabase:", error);
-                }
-            };
-            loadData();
+        if (role === "nutriologo") {
+            isolatedPatients = fetchedPatients || [];
+            const myPatientIds = new Set(isolatedPatients.map((p) => Number(p.id)));
+            const patientIds = [...myPatientIds];
+            const [fa, fp, fr] = await Promise.all([
+                appointmentService.getAppointments(patientIds),
+                nutritionPlanService.getPlans(patientIds),
+                reportService.getReports(patientIds),
+            ]);
+            isolatedAppointments = (fa || []).filter((a) => myPatientIds.has(Number(a.patient_id)));
+            isolatedPlans = (fp || []).filter((pl) => myPatientIds.has(Number(pl.patient_id)));
+            isolatedReports = (fr || []).filter((r) => myPatientIds.has(Number(r.patient_id)));
+        } else {
+            const myPatient = (fetchedPatients || []).find(
+                (p) =>
+                    p.user_id === session.user.id ||
+                    p.email?.toLowerCase() === session.user.email?.toLowerCase()
+            );
+            if (myPatient) {
+                patientId = myPatient.id;
+                isolatedPatients = [myPatient];
+                const [fa, fp, fr] = await Promise.all([
+                    appointmentService.getAppointments([patientId]),
+                    nutritionPlanService.getPlans([patientId]),
+                    reportService.getReports([patientId]),
+                ]);
+                isolatedAppointments = (fa || []).filter((a) => Number(a.patient_id) === Number(patientId));
+                isolatedPlans = (fp || []).filter((pl) => Number(pl.patient_id) === Number(patientId));
+                isolatedReports = (fr || []).filter((r) => Number(r.patient_id) === Number(patientId));
+            }
         }
-    }, [state.auth.isAuthenticated]);
+
+        setState((prev) => ({
+            ...prev,
+            auth: {
+                isAuthenticated: true,
+                role,
+                username: session.user.email,
+                fullName,
+                patientId,
+                uid: session.user.id,
+            },
+            patients: isolatedPatients,
+            appointments: isolatedAppointments.map((a) => ({
+                id: a.id,
+                patientId: a.patient_id,
+                date: a.date,
+                time: a.time,
+                status: a.status,
+                notes: a.notes,
+                type: a.type || "consulta",
+                duration: Number(a.duration) || 30,
+                reason: a.reason || "",
+            })),
+            plans: isolatedPlans.map((p) => ({
+                id: p.id,
+                patientId: p.patient_id,
+                name: p.name,
+                target: p.target,
+                calories: p.calories,
+                duration: p.duration,
+                meals: p.meals,
+            })),
+            reports: isolatedReports.map((r) => ({
+                id: r.id,
+                patientId: r.patient_id,
+                date: r.date,
+                weight: Number(r.weight),
+                bmi: Number(r.bmi),
+                calories: Number(r.calories),
+                type: r.type || "progreso",
+                notes: r.notes || "",
+                feeling: r.feeling || "",
+                observations: r.observations || "",
+                diagnosis: r.diagnosis || "",
+                recommendations: r.recommendations || [],
+                nextSteps: r.next_steps || "",
+                conclusion: r.conclusion || "",
+            })),
+        }));
+
+        return { role, patientId, uid: session.user.id };
+    };
+
+    // ─── Auth listener: reacciona INSTANTÁNEAMENTE a login/logout de Supabase ───
+    useEffect(() => {
+        if (!isSupabaseConfigured) return;
+
+        // Carga inicial de sesión existente
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+                loadUserData(session).catch(console.error);
+            }
+        });
+
+        // Escucha cambios de sesión en tiempo real (login, logout, token refresh)
+        const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (event === "SIGNED_OUT" || !session) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    setState(defaultState);
+                } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+                    await loadUserData(session);
+                }
+            }
+        );
+
+        return () => authSub.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ─── Realtime subscriptions: sincronización en vivo entre roles ───
+    useEffect(() => {
+        if (!isSupabaseConfigured || !state.auth.isAuthenticated) return;
+
+        const { role, patientId, uid } = state.auth;
+
+        // Recarga todos los datos relevantes del usuario actual desde Supabase
+        const refreshAll = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) await loadUserData(session);
+        };
+
+        const channels = [];
+
+        if (role === "nutriologo") {
+            // El nutriólogo escucha cambios en sus pacientes y los datos relacionados
+            const ch = supabase
+                .channel(`nutriologo-realtime-${uid}`)
+                .on("postgres_changes", { event: "*", schema: "public", table: "patients" }, refreshAll)
+                .on("postgres_changes", { event: "*", schema: "public", table: "appointments" }, refreshAll)
+                .on("postgres_changes", { event: "*", schema: "public", table: "nutrition_plans" }, refreshAll)
+                .on("postgres_changes", { event: "*", schema: "public", table: "reports" }, refreshAll)
+                .subscribe();
+            channels.push(ch);
+        } else if (patientId) {
+            // El paciente escucha cambios en sus propios datos (citas, planes, reportes)
+            const ch = supabase
+                .channel(`patient-realtime-${patientId}`)
+                .on("postgres_changes", { event: "*", schema: "public", table: "appointments", filter: `patient_id=eq.${patientId}` }, refreshAll)
+                .on("postgres_changes", { event: "*", schema: "public", table: "nutrition_plans", filter: `patient_id=eq.${patientId}` }, refreshAll)
+                .on("postgres_changes", { event: "*", schema: "public", table: "reports", filter: `patient_id=eq.${patientId}` }, refreshAll)
+                .subscribe();
+            channels.push(ch);
+        }
+
+        return () => {
+            channels.forEach((ch) => supabase.removeChannel(ch));
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state.auth.isAuthenticated, state.auth.role, state.auth.patientId]);
+
 
     const login = async ({ email, password }) => {
         const normalizedEmail = email.trim().toLowerCase();
@@ -230,108 +278,26 @@ function AppProvider({ children }) {
                             uid: data.user.id
                         }
                     }));
+                    
+                    // Auditoría de login exitoso
+                    auditLogger.auditLogin(data.user.id, data.user.email, role);
+                    
                     return { ok: true };
                 }
             } catch (error) {
+                // Auditoría de intento fallido
+                auditLogger.warn("LOGIN_FAILED", { email: normalizedEmail, error: error.message });
                 return { ok: false, message: error.message || "Error al iniciar sesión en Supabase." };
             }
         }
 
-        // 2. Demo accounts local fallback
-        if (normalizedEmail === "josuesepulvedassj@gmail.com") {
-            if (password === "josue123") {
-                setState((prev) => ({
-                    ...prev,
-                    auth: {
-                        isAuthenticated: true,
-                        role: "nutriologo",
-                        username: "Dra. Maria Torres",
-                        fullName: "Dra. Maria Torres",
-                        patientId: null
-                    }
-                }));
-                return { ok: true };
-            } else {
-                return { ok: false, message: "Contraseña incorrecta para el demo de Nutriólogo." };
-            }
-        }
-
-        if (normalizedEmail === "josuexdsepulveda@gmail.com") {
-            if (password === "josue123") {
-                const patient = state.patients.find(p => p.email === "josuexdsepulveda@gmail.com") || state.patients[0];
-                setState((prev) => ({
-                    ...prev,
-                    auth: {
-                        isAuthenticated: true,
-                        role: "usuario",
-                        username: "Paciente NutriTrack",
-                        fullName: patient ? patient.name : "Paciente NutriTrack",
-                        patientId: patient ? patient.id : 2
-                    }
-                }));
-                return { ok: true };
-            } else {
-                return { ok: false, message: "Contraseña incorrecta para el demo de Paciente." };
-            }
-        }
-
-        // 3. Registered nutritionists local fallback
-        const registeredNutri = state.registeredNutriologists.find(
-            n => n.email.trim().toLowerCase() === normalizedEmail && n.password === password
-        );
-        if (registeredNutri) {
-            setState((prev) => ({
-                ...prev,
-                auth: {
-                    isAuthenticated: true,
-                    role: "nutriologo",
-                    username: registeredNutri.email,
-                    fullName: `${registeredNutri.firstName} ${registeredNutri.lastName}`.trim(),
-                    patientId: null
-                }
-            }));
-            return { ok: true };
-        }
-
-        // 4. Registered patients local fallback
-        const registeredPat = state.registeredUsers.find(
-            u => u.email.trim().toLowerCase() === normalizedEmail && u.password === password
-        );
-        if (registeredPat) {
-            let patient = state.patients.find(p => p.email.trim().toLowerCase() === normalizedEmail);
-            let updatedPatients = [...state.patients];
-            if (!patient) {
-                patient = {
-                    id: getNextId(state.patients),
-                    name: `${registeredPat.firstName} ${registeredPat.lastName}`.trim(),
-                    age: 30,
-                    weight: 70,
-                    height: 170,
-                    target: "Mantenimiento",
-                    notes: "Ficha creada al iniciar sesión.",
-                    email: registeredPat.email
-                };
-                updatedPatients.unshift(patient);
-            }
-
-            setState((prev) => ({
-                ...prev,
-                patients: updatedPatients,
-                auth: {
-                    isAuthenticated: true,
-                    role: "usuario",
-                    username: registeredPat.email,
-                    fullName: `${registeredPat.firstName} ${registeredPat.lastName}`.trim(),
-                    patientId: patient.id
-                }
-            }));
-            return { ok: true };
-        }
-
-        return { ok: false, message: "Correo o contraseña incorrectos." };
+        return { ok: false, message: "El servicio de autenticación no está configurado." };
     };
 
     const logout = async () => {
+        const currentUserId = state.auth.uid;
+        const currentEmail = state.auth.username;
+        
         if (isSupabaseConfigured) {
             try {
                 await userService.signOut();
@@ -340,24 +306,16 @@ function AppProvider({ children }) {
             }
         }
 
+        // Auditoría de logout
+        if (currentUserId) {
+            auditLogger.auditLogout(currentUserId, currentEmail);
+        }
+
         // Limpiar localStorage completamente para evitar sesiones fantasma
         localStorage.removeItem(STORAGE_KEY);
 
-        setState((prev) => ({
-            ...prev,
-            auth: {
-                isAuthenticated: false,
-                role: null,
-                username: "",
-                fullName: "",
-                patientId: null,
-                uid: null
-            },
-            patients: isSupabaseConfigured ? [] : prev.patients,
-            appointments: isSupabaseConfigured ? [] : prev.appointments,
-            plans: isSupabaseConfigured ? [] : prev.plans,
-            reports: isSupabaseConfigured ? [] : prev.reports
-        }));
+        // Resetear COMPLETAMENTE el estado a valores por defecto
+        setState(defaultState);
     };
 
     const addPatient = async (payload) => {
@@ -418,13 +376,17 @@ function AppProvider({ children }) {
 
                 if (saved) {
                     newPatient = { ...newPatient, ...saved };
+                    // Auditoría de creación de paciente
+                    auditLogger.auditPatientAction("CREATED", newPatient.id, newPatient.name, state.auth.uid);
                 }
             } catch (error) {
                 console.error("Error al registrar paciente en Supabase:", error);
+                auditLogger.error("PATIENT_CREATE_ERROR", { error: error.message, patient: newPatient });
                 newPatient.id = `temp-${Date.now()}`;
             }
         } else {
             newPatient.id = getNextId(state.patients);
+            auditLogger.auditPatientAction("CREATED", newPatient.id, newPatient.name, state.auth.uid);
         }
 
         setState((prev) => ({
@@ -464,8 +426,11 @@ function AppProvider({ children }) {
                     }
                 }
                 await patientService.updatePatient(patientId, updated);
+                // Auditoría de actualización de paciente
+                auditLogger.auditPatientAction("UPDATED", patientId, updated.name, state.auth.uid);
             } catch (error) {
                 console.error("Error al actualizar paciente en Supabase:", error);
+                auditLogger.error("PATIENT_UPDATE_ERROR", { error: error.message, patientId });
             }
         }
 
@@ -478,11 +443,25 @@ function AppProvider({ children }) {
     };
 
     const removePatient = async (patientId) => {
+        const patient = state.patients.find(p => p.id === patientId);
+        
         if (isSupabaseConfigured) {
             try {
+                // Eliminar en cascada: citas, planes y reportes del paciente antes de eliminarlo
+                await Promise.all([
+                    supabase.from("appointments").delete().eq("patient_id", patientId),
+                    supabase.from("nutrition_plans").delete().eq("patient_id", patientId),
+                    supabase.from("reports").delete().eq("patient_id", patientId)
+                ]);
+                // Luego eliminar el paciente
                 await patientService.deletePatient(patientId);
+                // Auditoría de eliminación de paciente
+                if (patient) {
+                    auditLogger.auditPatientAction("DELETED", patientId, patient.name, state.auth.uid);
+                }
             } catch (error) {
                 console.error("Error al eliminar paciente de Supabase:", error);
+                auditLogger.error("PATIENT_DELETE_ERROR", { error: error.message, patientId });
             }
         }
 
@@ -523,13 +502,17 @@ function AppProvider({ children }) {
                         duration: saved.duration || newAppointment.duration,
                         reason: saved.reason ?? newAppointment.reason
                     };
+                    // Auditoría de creación de cita
+                    auditLogger.auditAppointmentAction("CREATED", newAppointment.id, newAppointment.patientId, state.auth.uid);
                 }
             } catch (error) {
                 console.error("Error al agendar cita en Supabase:", error);
+                auditLogger.error("APPOINTMENT_CREATE_ERROR", { error: error.message, appointment: newAppointment });
                 newAppointment.id = `temp-${Date.now()}`;
             }
         } else {
             newAppointment.id = getNextId(state.appointments);
+            auditLogger.auditAppointmentAction("CREATED", newAppointment.id, newAppointment.patientId, state.auth.uid);
         }
 
         setState((prev) => ({
@@ -555,8 +538,11 @@ function AppProvider({ children }) {
         if (isSupabaseConfigured) {
             try {
                 await appointmentService.updateAppointment(appointmentId, updated);
+                // Auditoría de actualización de cita
+                auditLogger.auditAppointmentAction("UPDATED", appointmentId, updated.patientId, state.auth.uid);
             } catch (error) {
                 console.error("Error al actualizar cita en Supabase:", error);
+                auditLogger.error("APPOINTMENT_UPDATE_ERROR", { error: error.message, appointmentId });
             }
         }
 
@@ -571,11 +557,18 @@ function AppProvider({ children }) {
     };
 
     const cancelAppointment = async (appointmentId) => {
+        const appointment = state.appointments.find(a => a.id === appointmentId);
+        
         if (isSupabaseConfigured) {
             try {
                 await appointmentService.cancelAppointment(appointmentId);
+                // Auditoría de cancelación de cita
+                if (appointment) {
+                    auditLogger.auditAppointmentAction("CANCELLED", appointmentId, appointment.patientId, state.auth.uid);
+                }
             } catch (error) {
                 console.error("Error al cancelar cita en Supabase:", error);
+                auditLogger.error("APPOINTMENT_CANCEL_ERROR", { error: error.message, appointmentId });
             }
         }
 
@@ -683,13 +676,17 @@ function AppProvider({ children }) {
                         duration: saved.duration,
                         meals: saved.meals
                     };
+                    // Auditoría de creación de plan
+                    auditLogger.auditPlanAction("CREATED", newPlan.id, newPlan.patientId, state.auth.uid);
                 }
             } catch (error) {
                 console.error("Error al crear plan nutricional en Supabase:", error);
+                auditLogger.error("PLAN_CREATE_ERROR", { error: error.message, plan: newPlan });
                 newPlan.id = `temp-${Date.now()}`;
             }
         } else {
             newPlan.id = getNextId(state.plans);
+            auditLogger.auditPlanAction("CREATED", newPlan.id, newPlan.patientId, state.auth.uid);
         }
 
         setState((prev) => ({
@@ -711,8 +708,11 @@ function AppProvider({ children }) {
         if (isSupabaseConfigured) {
             try {
                 await nutritionPlanService.updatePlan(planId, updated);
+                // Auditoría de actualización de plan
+                auditLogger.auditPlanAction("UPDATED", planId, updated.patientId, state.auth.uid);
             } catch (error) {
                 console.error("Error al actualizar plan en Supabase:", error);
+                auditLogger.error("PLAN_UPDATE_ERROR", { error: error.message, planId });
             }
         }
 
@@ -725,11 +725,18 @@ function AppProvider({ children }) {
     };
 
     const removePlan = async (planId) => {
+        const plan = state.plans.find(p => p.id === planId);
+        
         if (isSupabaseConfigured) {
             try {
                 await nutritionPlanService.deletePlan(planId);
+                // Auditoría de eliminación de plan
+                if (plan) {
+                    auditLogger.auditPlanAction("DELETED", planId, plan.patientId, state.auth.uid);
+                }
             } catch (error) {
                 console.error("Error al eliminar plan en Supabase:", error);
+                auditLogger.error("PLAN_DELETE_ERROR", { error: error.message, planId });
             }
         }
 
@@ -749,7 +756,11 @@ function AppProvider({ children }) {
             notes: payload.notes || "",
             feeling: payload.feeling || "",
             observations: payload.observations || "",
-            diagnosis: payload.diagnosis || ""
+            diagnosis: payload.diagnosis || "",
+            type: payload.type || "progreso",
+            recommendations: payload.recommendations || [],
+            nextSteps: payload.nextSteps || "",
+            conclusion: payload.conclusion || ""
         };
 
         if (isSupabaseConfigured) {
@@ -765,13 +776,17 @@ function AppProvider({ children }) {
                         bmi: Number(saved.bmi),
                         calories: Number(saved.calories)
                     };
+                    // Auditoría de creación de reporte
+                    auditLogger.auditReportAction("CREATED", newReport.id, newReport.patientId, state.auth.uid);
                 }
             } catch (error) {
                 console.error("Error al guardar reporte en Supabase:", error);
+                auditLogger.error("REPORT_CREATE_ERROR", { error: error.message, report: newReport });
                 newReport.id = `temp-${Date.now()}`;
             }
         } else {
             newReport.id = getNextId(state.reports);
+            auditLogger.auditReportAction("CREATED", newReport.id, newReport.patientId, state.auth.uid);
         }
 
         setState((prev) => ({
@@ -786,7 +801,15 @@ function AppProvider({ children }) {
             date: updatedReport.date,
             weight: Number(updatedReport.weight),
             bmi: Number(updatedReport.bmi),
-            calories: Number(updatedReport.calories)
+            calories: Number(updatedReport.calories),
+            type: updatedReport.type || "progreso",
+            notes: updatedReport.notes || "",
+            feeling: updatedReport.feeling || "",
+            observations: updatedReport.observations || "",
+            diagnosis: updatedReport.diagnosis || "",
+            recommendations: updatedReport.recommendations || [],
+            nextSteps: updatedReport.nextSteps || "",
+            conclusion: updatedReport.conclusion || ""
         };
 
         if (isSupabaseConfigured) {
@@ -826,89 +849,21 @@ function AppProvider({ children }) {
 
         if (isSupabaseConfigured) {
             try {
-                const data = await userService.signUp(
+                await userService.signUp(
                     email,
                     userData.password,
                     "usuario",
                     fullName
                 );
-                if (data?.user) {
-                    // Buscar si ya existe una ficha de paciente registrada por el nutriólogo
-                    const { data: existingPatients } = await supabase
-                        .from("patients")
-                        .select("*")
-                        .ilike("email", email);
-
-                    if (existingPatients && existingPatients.length > 0) {
-                        // Vincular la ficha del paciente al usuario recién registrado
-                        await supabase
-                            .from("patients")
-                            .update({ user_id: data.user.id })
-                            .eq("id", existingPatients[0].id);
-                    } else {
-                        // Crear una nueva ficha vinculada
-                        await patientService.createPatient({
-                            name: fullName,
-                            age: 30,
-                            weight: 70,
-                            height: 170,
-                            target: "Mantenimiento",
-                            notes: "Ficha creada por registro público.",
-                            email,
-                            user_id: data.user.id
-                        });
-                    }
-                }
+                // El trigger handle_new_user crea o vincula la ficha de paciente
+                // dentro de la base de datos, incluso si se exige confirmar email.
                 return { success: true, message: "Usuario registrado exitosamente en Supabase" };
             } catch (error) {
                 return { success: false, message: error.message || "Error al registrarse en Supabase." };
             }
         }
 
-        // Local storage register
-        const existingUser = state.registeredUsers.find(user => 
-            user.email === email
-        );
-        
-        if (existingUser) {
-            return { success: false, message: "El correo ya está registrado" };
-        }
-        
-        const newUser = {
-            id: getNextId(state.registeredUsers),
-            ...userData,
-            fullName,
-            registeredAt: new Date().toISOString()
-        };
-
-        // Comprobar si el nutriólogo ya creó una ficha para este correo
-        const existingPatient = state.patients.find(
-            (p) => p.email?.trim().toLowerCase() === email
-        );
-        let updatedPatients = [...state.patients];
-
-        if (!existingPatient) {
-            const patientId = getNextId(state.patients);
-            const newPatient = {
-                id: patientId,
-                name: fullName,
-                age: 30,
-                weight: 70,
-                height: 170,
-                target: "Mantenimiento",
-                notes: "Ficha creada por registro público.",
-                email: userData.email
-            };
-            updatedPatients.unshift(newPatient);
-        }
-        
-        setState((prev) => ({
-            ...prev,
-            registeredUsers: [...prev.registeredUsers, newUser],
-            patients: updatedPatients
-        }));
-        
-        return { success: true, message: "Usuario registrado exitosamente" };
+        return { success: false, message: "El registro requiere una conexión configurada con Supabase." };
     };
     
     const registerNutriologist = async (nutriologistData) => {
@@ -929,51 +884,23 @@ function AppProvider({ children }) {
             }
         }
 
-        // Local storage register
-        const existingNutriologist = state.registeredNutriologists.find(nutriologist => 
-            nutriologist.email === email
-        );
-        
-        if (existingNutriologist) {
-            return { success: false, message: "El correo ya está registrado" };
-        }
-        
-        const newNutriologist = {
-            id: getNextId(state.registeredNutriologists),
-            ...nutriologistData,
-            fullName,
-            registeredAt: new Date().toISOString()
-        };
-        
-        setState((prev) => ({
-            ...prev,
-            registeredNutriologists: [...prev.registeredNutriologists, newNutriologist]
-        }));
-        
-        return { success: true, message: "Nutriólogo registrado exitosamente" };
+        return { success: false, message: "El registro requiere una conexión configurada con Supabase." };
     };
 
-    const changePassword = (currentPassword, newPassword) => {
-        const role = state.auth.role;
-        if (!role) {
-            return { ok: false, message: "No hay una sesión activa." };
+    const changePassword = async (currentPassword, newPassword) => {
+        if (!isSupabaseConfigured) {
+            return { ok: false, message: "El cambio de contraseña requiere una conexión configurada con Supabase." };
         }
-        const savedPassword = state.security[role];
-        if (currentPassword !== savedPassword) {
-            return { ok: false, message: "La contraseña actual no coincide." };
+        if (newPassword.trim().length < 10) {
+            return { ok: false, message: "La nueva contraseña debe tener al menos 10 caracteres." };
         }
-        if (newPassword.trim().length < 6) {
-            return { ok: false, message: "La nueva contraseña debe tener al menos 6 caracteres." };
+        try {
+            await userService.signIn(state.auth.username, currentPassword);
+            await userService.updatePassword(newPassword);
+            return { ok: true, message: "Contraseña actualizada correctamente." };
+        } catch {
+            return { ok: false, message: "La contraseña actual no coincide o no se pudo actualizar." };
         }
-
-        setState((prev) => ({
-            ...prev,
-            security: {
-                ...prev.security,
-                [role]: newPassword
-            }
-        }));
-        return { ok: true, message: "Contraseña actualizada correctamente." };
     };
 
     const updateProfile = (profileForm) => {
@@ -991,17 +918,113 @@ function AppProvider({ children }) {
         }));
     };
 
+    const toggleTheme = () => {
+        setState((prev) => {
+            const nextTheme = prev.theme === "dark" ? "light" : "dark";
+            return { ...prev, theme: nextTheme };
+        });
+    };
+
+    const updateDailyHabits = async (dateStr, habitData) => {
+        setState((prev) => ({
+            ...prev,
+            dailyHabits: {
+                ...prev.dailyHabits,
+                [dateStr]: habitData
+            }
+        }));
+
+        if (isSupabaseConfigured && state.auth.patientId) {
+            try {
+                await supabase.from("daily_habits").upsert({
+                    patient_id: Number(state.auth.patientId),
+                    date: dateStr,
+                    water_glasses: Number(habitData.waterGlasses) || 0,
+                    completed_meals: habitData.completedMeals || [],
+                    mood: habitData.mood || null,
+                    energy: Number(habitData.energy) || null
+                }, { onConflict: "patient_id,date" });
+            } catch (err) {
+                console.error("Error al sincronizar hábitos en Supabase:", err);
+            }
+        }
+    };
+
+    const saveDietTemplate = (templateData) => {
+        const newTemplate = {
+            id: templateData.id || `custom-${Date.now()}`,
+            name: templateData.name.trim(),
+            description: templateData.description?.trim() || "",
+            target: templateData.target || "Control calórico",
+            calories: Number(templateData.calories) || 2000,
+            duration: Number(templateData.duration) || 4,
+            macros: templateData.macros || { protein: 30, carbs: 45, fat: 25 },
+            meals: templateData.meals
+        };
+
+        setState((prev) => ({
+            ...prev,
+            dietTemplates: [
+                newTemplate,
+                ...(prev.dietTemplates || []).filter((t) => t.id !== newTemplate.id)
+            ]
+        }));
+        return newTemplate;
+    };
+
+    const deleteDietTemplate = (templateId) => {
+        setState((prev) => ({
+            ...prev,
+            dietTemplates: (prev.dietTemplates || []).filter((t) => t.id !== templateId)
+        }));
+    };
+
+    const generateWhatsAppPlanMessage = (patientName, plan) => {
+        if (!plan) return "";
+        let text = `👋 ¡Hola ${patientName || "Paciente"}! Te comparto tu nuevo plan alimenticio personalizado en *NutriTrack* 🥗\n\n`;
+        text += `🎯 *Objetivo:* ${plan.target || "Nutricional"}\n`;
+        text += `🔥 *Meta Calórica:* ${plan.calories || 2000} kcal/día\n`;
+        text += `⏱ *Duración:* ${plan.duration || 4} semanas\n\n`;
+        text += `📋 *DISTRIBUCIÓN DE COMIDAS:*\n`;
+
+        const mealTitles = {
+            desayuno: "☀️ Desayuno",
+            mediaManana: "🌤 Media Mañana",
+            almuerzo: "🍲 Almuerzo",
+            merienda: "☕ Merienda",
+            cena: "🌙 Cena",
+            snack: "🍪 Snack"
+        };
+
+        Object.entries(plan.meals || {}).forEach(([key, foods]) => {
+            if (Array.isArray(foods) && foods.length > 0) {
+                text += `\n*${mealTitles[key] || key.toUpperCase()}:*\n`;
+                foods.forEach((f) => {
+                    const name = typeof f === "string" ? f : f.name;
+                    const qty = f.qty ? ` (${f.qty} ${f.unit || ""})` : "";
+                    const notes = f.notes ? ` - _${f.notes}_` : "";
+                    text += `  • ${name}${qty}${notes}\n`;
+                });
+            }
+        });
+
+        text += `\n💧 *Recordatorio:* Recuerda tomar mínimo 2L de agua al día y registrar tu progreso en NutriTrack ✨`;
+        return `https://wa.me/?text=${encodeURIComponent(text)}`;
+    };
+
     const value = useMemo(
         () => ({
+            theme: state.theme || "light",
+            toggleTheme,
             auth: state.auth,
             patients: state.patients,
             appointments: state.appointments,
             plans: state.plans,
             reports: state.reports,
+            dailyHabits: state.dailyHabits || {},
+            dietTemplates: state.dietTemplates || PRESET_DIET_TEMPLATES,
             appointmentHistory: state.appointmentHistory || [],
             profiles: state.profiles,
-            registeredUsers: state.registeredUsers,
-            registeredNutriologists: state.registeredNutriologists,
             login,
             logout,
             addPatient,
@@ -1018,6 +1041,10 @@ function AppProvider({ children }) {
             addReport,
             updateReport,
             removeReport,
+            updateDailyHabits,
+            saveDietTemplate,
+            deleteDietTemplate,
+            generateWhatsAppPlanMessage,
             updateProfile,
             registerUser,
             registerNutriologist,

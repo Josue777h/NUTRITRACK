@@ -109,15 +109,6 @@ function RegisterPage() {
         { icon: "bi-calendar3-event-fill", text: "Agenda de citas inteligente y recordatorios" },
     ];
 
-    const barColors = [
-        "var(--line)",
-        "var(--danger)",
-        "var(--warning)",
-        "var(--warning-light)",
-        "var(--success)",
-        "var(--primary)",
-    ];
-
     return (
         <section className="login-page">
             {/* Animated background */}
@@ -163,49 +154,9 @@ function RegisterPage() {
                         style={{ padding: "2.5rem 2.5rem 1.5rem", gap: "0.9rem" }}>
 
                         <header className="login-form-header">
-                            <h2>Crear cuenta</h2>
-                            <p>Regístrate gratis y empieza a gestionar tu práctica.</p>
+                            <h2>Crear cuenta profesional</h2>
+                            <p>Registra tu consultorio y gestiona a tus pacientes con NutriTrack.</p>
                         </header>
-
-                        {/* Role selector */}
-                        <div>
-                            <label style={{
-                                fontSize: "0.8rem", fontWeight: 600,
-                                color: "var(--muted)", marginBottom: "0.5rem",
-                                display: "block", textTransform: "uppercase",
-                                letterSpacing: "0.04em"
-                            }}>
-                                Tipo de cuenta
-                            </label>
-                            <div className="role-selector">
-                                <button
-                                    type="button"
-                                    className={`role-card${form.role === "nutriologo" ? " selected" : ""}`}
-                                    onClick={() => setForm((p) => ({ ...p, role: "nutriologo" }))}
-                                    disabled={isLoading}
-                                >
-                                    <span className="role-card-check"><i className="bi bi-check-lg" /></span>
-                                    <span className="role-card-icon nutri">
-                                        <i className="bi bi-person-badge-fill" />
-                                    </span>
-                                    <strong>Nutriólogo</strong>
-                                    <span>Gestiona pacientes</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`role-card${form.role === "usuario" ? " selected" : ""}`}
-                                    onClick={() => setForm((p) => ({ ...p, role: "usuario" }))}
-                                    disabled={isLoading}
-                                >
-                                    <span className="role-card-check"><i className="bi bi-check-lg" /></span>
-                                    <span className="role-card-icon patient">
-                                        <i className="bi bi-person-heart" />
-                                    </span>
-                                    <strong>Paciente</strong>
-                                    <span>Ve tu progreso</span>
-                                </button>
-                            </div>
-                        </div>
 
                         {/* Name */}
                         <div className="field">

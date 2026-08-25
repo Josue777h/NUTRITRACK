@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useToast } from '../context/ToastContext';
+import { useApp } from '../context/AppContext';
+import MacroDonutChart from './charts/MacroDonutChart';
 
 const EMPTY_MEALS = {
     desayuno: [],
@@ -31,8 +33,10 @@ const emptyFoodForm = (category) => ({
 
 const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) => {
     const { showError, showSuccess } = useToast();
+    const { dietTemplates, generateWhatsAppPlanMessage, saveDietTemplate } = useApp();
     const [isEditing, setIsEditing] = useState(mode === 'edit' || mode === 'add');
     const [editingFood, setEditingFood] = useState(null); // { category, index }
+    const [selectedTemplateId, setSelectedTemplateId] = useState('');
     const [form, setForm] = useState({
         patientId: '',
         name: '',
@@ -234,6 +238,38 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
     const mealCalories = (foods) =>
         (foods || []).reduce((sum, f) => sum + (Number(f.calories) || 0), 0);
 
+    const handleApplyTemplate = (tplId) => {
+        setSelectedTemplateId(tplId);
+        if (!tplId) return;
+        const found = (dietTemplates || []).find((t) => t.id === tplId);
+        if (found) {
+            setForm((prev) => ({
+                ...prev,
+                name: found.name,
+                target: found.target,
+                calories: String(found.calories),
+                duration: String(found.duration),
+                meals: JSON.parse(JSON.stringify(found.meals))
+            }));
+            showSuccess(`Plantilla "${found.name}" cargada.`);
+        }
+    };
+
+    const handleSaveAsTemplate = () => {
+        if (!form.name.trim()) {
+            showError("Ingresa un nombre para la plantilla.");
+            return;
+        }
+        saveDietTemplate({
+            name: form.name.trim(),
+            target: form.target,
+            calories: Number(form.calories) || 2000,
+            duration: Number(form.duration) || 4,
+            meals: form.meals
+        });
+        showSuccess("¡Plan guardado en tu biblioteca de plantillas reutilizables!");
+    };
+
     return (
         <Modal
             isOpen={isOpen}
@@ -242,8 +278,60 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
             size="large"
         >
             <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1.5rem' }}>
-                <div style={{ padding: '1.25rem', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-soft)' }}>
-                    <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Información General</h4>
+                {/* Template Selector Bar (when editing/adding) */}
+                {isEditing && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--primary-soft)", padding: "0.85rem 1.15rem", borderRadius: "var(--radius)", flexWrap: "wrap", gap: "0.75rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span style={{ fontSize: "1.2rem" }}>⚡</span>
+                            <div>
+                                <strong style={{ fontSize: "0.88rem", color: "var(--primary-strong)", display: "block" }}>
+                                    Biblioteca de Plantillas Clínicas
+                                </strong>
+                                <span style={{ fontSize: "0.74rem", color: "var(--muted)" }}>
+                                    Ahorra tiempo cargando dietas estructuradas en 1 clic
+                                </span>
+                            </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                            <select
+                                value={selectedTemplateId}
+                                onChange={(e) => handleApplyTemplate(e.target.value)}
+                                style={{ fontSize: "0.82rem", height: "2.3rem", minWidth: "220px" }}
+                            >
+                                <option value="">Seleccionar plantilla base...</option>
+                                {(dietTemplates || []).map((t) => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                className="btn secondary small"
+                                onClick={handleSaveAsTemplate}
+                                title="Guardar este plan actual como plantilla reutilizable"
+                                style={{ fontSize: "0.78rem" }}
+                            >
+                                <i className="bi bi-bookmark-plus" /> Guardar plantilla
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <div style={{ padding: '1.25rem', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-soft)', display: "grid", gap: "1.25rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                        <h4 style={{ fontWeight: 800, margin: 0 }}>Información General</h4>
+                        {!isEditing && (
+                            <a
+                                href={generateWhatsAppPlanMessage(getPatientName(form.patientId), form)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn small"
+                                style={{ background: "#25D366", color: "#fff", border: "none", display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.8rem", textDecoration: "none" }}
+                            >
+                                <i className="bi bi-whatsapp" /> Enviar por WhatsApp
+                            </a>
+                        )}
+                    </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                         <div className="field">
                             <label>Nombre del Plan *</label>
@@ -301,11 +389,16 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                             </select>
                         </div>
                     </div>
+
+                    {/* Live Macro Distribution Preview */}
+                    <div style={{ background: "var(--surface)", padding: "0.85rem 1rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)" }}>
+                        <MacroDonutChart calories={form.calories} size={110} />
+                    </div>
                 </div>
 
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-                        <h4 style={{ fontWeight: 700, margin: 0 }}>Estructura de Comidas</h4>
+                        <h4 style={{ fontWeight: 800, margin: 0 }}>Estructura de Comidas</h4>
                         {isEditing && (
                             <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
                                 Escribe el alimento y pulsa Agregar en cada tiempo de comida

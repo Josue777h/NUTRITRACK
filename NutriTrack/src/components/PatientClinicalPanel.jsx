@@ -63,17 +63,6 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
         date: new Date().toISOString().split("T")[0]
     });
 
-    // Files state
-    const [files, setFiles] = useState([
-        { id: 1, name: "Analítica de Sangre - Enero 2026.pdf", category: "Resultados de laboratorio", size: "1.2 MB", date: "2026-01-10" },
-        { id: 2, name: "Estudio Composición DXA.pdf", category: "PDFs médicos", size: "4.5 MB", date: "2026-02-15" },
-        { id: 3, name: "Consentimiento de Tratamiento.pdf", category: "PDFs médicos", size: "180 KB", date: "2026-02-20" },
-        { id: 4, name: "Receta Médica Complementaria.pdf", category: "Recetas", size: "320 KB", date: "2026-03-01" }
-    ]);
-    const [selectedFileCategory, setSelectedFileCategory] = useState("Todos");
-    const [newFileName, setNewFileName] = useState("");
-    const [newFileCategory, setNewFileCategory] = useState("Resultados de laboratorio");
-
     // Sync demographic fields when patient data updates (without resetting active tab)
     useEffect(() => {
         if (!patient) return;
@@ -108,7 +97,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
         setActiveTab("resumen");
         setPlanModalOpen(false);
         setSelectedPlan(null);
-    }, [patient?.id]);
+    }, [patient]);
 
     // Derived states — compare IDs loosely so string/number mismatches still match
     const patientReports = useMemo(() => {
@@ -117,10 +106,6 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
             .filter((item) => samePatientId(item.patientId, patient.id))
             .sort((a, b) => a.date.localeCompare(b.date));
     }, [patient, reports]);
-
-    const latestReport = useMemo(() => {
-        return patientReports[patientReports.length - 1];
-    }, [patientReports]);
 
     const patientPlans = useMemo(() => {
         if (!patient) return [];
@@ -341,30 +326,6 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
         }
     };
 
-    const handleAddFile = (e) => {
-        e.preventDefault();
-        if (!newFileName.trim()) return;
-
-        const newFile = {
-            id: Date.now(),
-            name: newFileName.trim().endsWith('.pdf') ? newFileName.trim() : `${newFileName.trim()}.pdf`,
-            category: newFileCategory,
-            size: "850 KB",
-            date: new Date().toISOString().split("T")[0]
-        };
-
-        setFiles(prev => [newFile, ...prev]);
-        setNewFileName("");
-        showSuccess("Archivo subido y clasificado.");
-    };
-
-    const handleDeleteFile = (fileId) => {
-        if (window.confirm("¿Seguro que deseas eliminar este archivo?")) {
-            setFiles(prev => prev.filter(f => f.id !== fileId));
-            showSuccess("Archivo eliminado.");
-        }
-    };
-
     return (
         <div className="panel" style={{ height: "100%", display: "flex", flexDirection: "column", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: "1.25rem", background: "var(--surface)", minHeight: "600px" }}>
             
@@ -406,7 +367,6 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                     { key: "consultas", label: "Consultas", icon: "bi-journal-medical" },
                     { key: "dieta", label: "Plan Alimenticio", icon: "bi-apple" },
                     { key: "seguimiento", label: "Seguimiento", icon: "bi-graph-up-arrow" },
-                    { key: "archivos", label: "Documentos", icon: "bi-file-earmark-medical" },
                     { key: "notas", label: "Notas", icon: "bi-sticky-fill" }
                 ].map(t => (
                     <button
@@ -634,7 +594,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                             <h5 style={{ fontWeight: "800", marginBottom: "0.75rem" }}>Historial Clínico</h5>
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                                 {patientReports.length > 0 ? (
-                                    [...patientReports].reverse().map((report, idx) => (
+                                    [...patientReports].reverse().map((report) => (
                                         <div key={report.id} className="panel" style={{ padding: "1rem", border: "1px solid var(--line)" }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
                                                 <strong>Consulta del: {formatDate(report.date)}</strong>
@@ -792,111 +752,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                     </div>
                 )}
 
-                {/* 5. DOCUMENTOS TAB */}
-                {activeTab === "archivos" && (
-                    <div style={{ display: "grid", gap: "1.25rem" }}>
-                        
-                        {/* File Upload Row Form */}
-                        <form onSubmit={handleAddFile} className="panel" style={{ padding: "1rem", border: "1px solid var(--line)", display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-                            <div className="field" style={{ flex: 2, minWidth: "180px" }}>
-                                <label>Nombre del documento</label>
-                                <input
-                                    placeholder="Ej: Análisis lipídico Feb"
-                                    value={newFileName}
-                                    onChange={e => setNewFileName(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="field" style={{ flex: 1, minWidth: "120px" }}>
-                                <label>Categoría</label>
-                                <select value={newFileCategory} onChange={e => setNewFileCategory(e.target.value)}>
-                                    <option value="Resultados de laboratorio">Resultados de laboratorio</option>
-                                    <option value="Recetas">Recetas</option>
-                                    <option value="Imágenes">Imágenes</option>
-                                    <option value="PDFs médicos">PDFs médicos</option>
-                                </select>
-                            </div>
-                            <button type="submit" className="btn success" style={{ padding: "0.5rem 1rem", background: "var(--primary)", border: "none" }}>
-                                Agregar documento
-                            </button>
-                        </form>
-
-                        {/* Files Filter and List */}
-                        <div>
-                            <div style={{ display: "flex", gap: "0.4rem", overflowX: "auto", paddingBottom: "0.5rem", marginBottom: "0.75rem" }}>
-                                {["Todos", "Resultados de laboratorio", "Recetas", "Imágenes", "PDFs médicos"].map(cat => (
-                                    <button
-                                        key={cat}
-                                        type="button"
-                                        onClick={() => setSelectedFileCategory(cat)}
-                                        className="badge"
-                                        style={{
-                                            padding: "0.3rem 0.6rem",
-                                            border: "1px solid var(--line)",
-                                            background: selectedFileCategory === cat ? "var(--primary-soft)" : "var(--surface)",
-                                            color: selectedFileCategory === cat ? "var(--primary-strong)" : "var(--text-light)",
-                                            cursor: "pointer"
-                                        }}
-                                    >
-                                        {cat}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="document-grid">
-                                {files.filter(f => selectedFileCategory === "Todos" || f.category === selectedFileCategory || (selectedFileCategory === "PDFs médicos" && f.category === "Exámenes")).map(file => {
-                                    // Map categories for older data fallbacks
-                                    const displayCategory = file.category === "Exámenes" ? "PDF médico" : file.category;
-                                    const iconMap = {
-                                        "Resultados de laboratorio": "bi-file-earmark-bar-graph-fill",
-                                        "Recetas": "bi-prescription",
-                                        "Imágenes": "bi-image-fill",
-                                        "PDFs médicos": "bi-file-earmark-pdf-fill"
-                                    };
-                                    const iconClass = iconMap[file.category] || "bi-file-earmark-medical-fill";
-
-                                    return (
-                                        <div key={file.id} className="document-card">
-                                            <div className="document-icon">
-                                                <i className={`bi ${iconClass}`} />
-                                            </div>
-                                            <div className="document-details">
-                                                <div className="document-title" title={file.name}>{file.name}</div>
-                                                <div className="document-meta">
-                                                    <span>{displayCategory}</span>
-                                                    <span>•</span>
-                                                    <span>{file.size}</span>
-                                                    <span>•</span>
-                                                    <span>{formatDate(file.date)}</span>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: "flex", gap: "0.25rem" }}>
-                                                <button
-                                                    title="Descargar"
-                                                    onClick={() => showSuccess("Descargando documento...")}
-                                                    className="btn secondary small"
-                                                    style={{ padding: "0.3rem", minWidth: "auto" }}
-                                                >
-                                                    <i className="bi bi-download" />
-                                                </button>
-                                                <button
-                                                    title="Eliminar"
-                                                    onClick={() => handleDeleteFile(file.id)}
-                                                    className="btn danger small"
-                                                    style={{ padding: "0.3rem", minWidth: "auto" }}
-                                                >
-                                                    <i className="bi bi-trash" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* 6. NOTAS TAB */}
+                {/* 5. NOTAS TAB */}
                 {activeTab === "notas" && (
                     <div style={{ display: "grid", gap: "1rem" }}>
                         <div className="field">

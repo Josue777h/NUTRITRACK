@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { navByRole, roleLabels, screenTitlesByRole } from "../data/mockData";
+import { navByRole, roleLabels, screenTitlesByRole } from "../data/appNavigation";
 import { useApp } from "../context/AppContext";
 
 function getGreeting() {
@@ -14,7 +14,7 @@ function AppLayout({ onLogout, children }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const location = useLocation();
-    const { auth } = useApp();
+    const { auth, theme, toggleTheme } = useApp();
     const userMenuRef = useRef(null);
 
     const getFirstName = (fullName) => {
@@ -141,7 +141,31 @@ function AppLayout({ onLogout, children }) {
                             </p>
                         </div>
                     </div>
-                    <div className="topbar-right">
+                    <div className="topbar-right" style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                        {/* Theme mode toggle button */}
+                        <button
+                            type="button"
+                            className="theme-toggle-btn"
+                            onClick={toggleTheme}
+                            title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+                            aria-label="Alternar tema"
+                            style={{
+                                width: "38px",
+                                height: "38px",
+                                borderRadius: "50%",
+                                border: "1px solid var(--line)",
+                                background: "var(--surface)",
+                                color: theme === "dark" ? "#f59e0b" : "var(--text)",
+                                display: "grid",
+                                placeItems: "center",
+                                cursor: "pointer",
+                                fontSize: "1.05rem",
+                                transition: "all 0.2s ease"
+                            }}
+                        >
+                            <i className={`bi ${theme === "dark" ? "bi-sun-fill" : "bi-moon-stars-fill"}`} />
+                        </button>
+
                         <div className="user-menu-wrapper" ref={userMenuRef}>
                             <button
                                 className="user-menu-trigger"
@@ -175,21 +199,9 @@ function AppLayout({ onLogout, children }) {
                                             style={{ textDecoration: "none", color: "inherit" }}
                                             role="menuitem"
                                         >
-                                            <i className="bi bi-person" />
-                                            Mi perfil
+                                            <i className="bi bi-person-gear" />
+                                            {isNutri ? "Mi cuenta y consultorio" : "Mi perfil"}
                                         </NavLink>
-                                        {isNutri && (
-                                            <NavLink
-                                                to="/configuracion"
-                                                className="menu-dropdown-item"
-                                                onClick={() => setShowUserMenu(false)}
-                                                style={{ textDecoration: "none", color: "inherit" }}
-                                                role="menuitem"
-                                            >
-                                                <i className="bi bi-gear" />
-                                                Configuración
-                                            </NavLink>
-                                        )}
                                         <div className="menu-divider" />
                                         <button
                                             className="menu-dropdown-item danger"

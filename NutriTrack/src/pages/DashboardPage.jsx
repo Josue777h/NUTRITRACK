@@ -7,6 +7,8 @@ import AddPatientModal from "../components/AddPatientModal";
 import AppointmentModal from "../components/AppointmentModal";
 import PlanModal from "../components/PlanModal";
 import ReportModal from "../components/ReportModal";
+import PatientHabitsTracker from "../components/PatientHabitsTracker";
+import ShoppingListModal from "../components/ShoppingListModal";
 
 function formatDate(dateValue) {
     if (!dateValue) return "";
@@ -98,42 +100,52 @@ function DashboardPage() {
         const metrics = [
             { label: "Pacientes activos", value: patients.length, icon: "bi-people", color: "var(--primary)" },
             { label: "Citas de hoy", value: agendaHoy.length, icon: "bi-calendar-check", color: "var(--secondary)" },
-            { label: "Pendientes", value: pendingSeguimientos, icon: "bi-chat-left-dots", color: "var(--accent)" },
-            { label: "Nuevos (mes)", value: newPatientsCount, icon: "bi-person-plus", color: "#8b5cf6" },
+            { label: "Pendientes", value: pendingSeguimientos, icon: "bi-clock-history", color: "var(--warning)" },
+            { label: "Nuevos (mes)", value: newPatientsCount, icon: "bi-person-plus", color: "var(--accent)" },
         ];
 
         const actions = [
-            { label: "Registrar paciente", icon: "bi-person-plus", bg: "var(--primary)", onClick: () => setIsPatientModalOpen(true) },
-            { label: "Agendar cita", icon: "bi-calendar-plus", bg: "var(--secondary)", onClick: openAppointmentModal },
-            { label: "Crear plan", icon: "bi-apple", bg: "#7c3aed", onClick: openPlanModal },
-            { label: "Registrar consulta", icon: "bi-clipboard2-pulse", bg: "#0ea5e9", onClick: openReportModal },
+            { label: "Registrar paciente", icon: "bi-person-plus", bg: "linear-gradient(135deg, var(--primary), var(--primary-strong))", onClick: () => setIsPatientModalOpen(true) },
+            { label: "Agendar cita", icon: "bi-calendar-plus", bg: "linear-gradient(135deg, var(--secondary), var(--secondary-strong))", onClick: openAppointmentModal },
+            { label: "Crear plan", icon: "bi-apple", bg: "linear-gradient(135deg, #49b54c, #3da140)", onClick: openPlanModal },
+            { label: "Registrar consulta", icon: "bi-clipboard2-pulse", bg: "linear-gradient(135deg, #382ffd, #2c22ea)", onClick: openReportModal },
         ];
 
         return (
             <div className="dash-grid">
-                {/* Greeting */}
-                <div className="dash-greeting">
-                    <h3>{getGreeting()}, {greetingName} </h3>
-                    <p>Gestiona tus citas del día, interactúa con tus pacientes y consulta tu agenda clínica.</p>
-                </div>
-
-                {/* Quick Actions — 2 columns on mobile, 4 on desktop */}
-                <div className="dash-actions-grid">
-                    {actions.map((a) => (
+                {/* Greeting & Header */}
+                <div className="dash-greeting" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+                    <div>
+                        <h3 style={{ fontSize: "1.35rem", fontWeight: "800", color: "var(--text)", margin: 0 }}>
+                            {getGreeting()}, {greetingName}
+                        </h3>
+                        <p style={{ color: "var(--muted)", fontSize: "0.88rem", marginTop: "0.25rem" }}>
+                            Aquí tienes el resumen de tu consulta médica y agenda de pacientes para hoy.
+                        </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.6rem" }}>
                         <button
-                            key={a.label}
-                            className="dash-action-btn"
-                            style={{ background: a.bg }}
-                            onClick={a.onClick}
                             type="button"
+                            className="btn small"
+                            onClick={() => setIsPatientModalOpen(true)}
+                            style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}
                         >
-                            <i className={`bi ${a.icon}`} />
-                            {a.label}
+                            <i className="bi bi-person-plus-fill" />
+                            Nuevo paciente
                         </button>
-                    ))}
+                        <button
+                            type="button"
+                            className="btn secondary small"
+                            onClick={openAppointmentModal}
+                            style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}
+                        >
+                            <i className="bi bi-calendar-plus" />
+                            Nueva cita
+                        </button>
+                    </div>
                 </div>
 
-                {/* Metrics — 2 columns on mobile, 4 on desktop */}
+                {/* Metrics */}
                 <div className="dash-metrics-grid">
                     {metrics.map((m) => (
                         <div key={m.label} className="metric-card">
@@ -224,6 +236,12 @@ function DashboardPage() {
        PACIENTE DASHBOARD
        ================================================================ */
     const nextAppt = upcomingAppointments[0];
+    const [isShoppingModalOpen, setIsShoppingModalOpen] = useState(false);
+
+    const patientActivePlan = useMemo(() => {
+        if (!auth.patientId) return null;
+        return plans.find((p) => Number(p.patientId) === Number(auth.patientId)) || null;
+    }, [plans, auth.patientId]);
 
     const patientReports = useMemo(() => {
         if (!auth.patientId) return [];
@@ -245,17 +263,17 @@ function DashboardPage() {
     /* No hay ficha clínica todavía */
     if (!currentPatient) {
         return (
-            <div className="dash-grid" style={{ maxWidth: 640, margin: "0 auto" }}>
+            <div className="dash-grid" style={{ maxWidth: 680, margin: "0 auto" }}>
                 <div className="patient-welcome">
                     <h3>¡Hola, {getFirstName(auth.fullName)}! </h3>
                     <p>Bienvenido a tu portal de salud NutriTrack.</p>
                 </div>
-                <div className="panel" style={{ textAlign: "center", padding: "2rem 1.5rem" }}>
-                    <i className="bi bi-person-exclamation" style={{ fontSize: "3rem", color: "var(--muted)", display: "block", marginBottom: "1rem" }} />
-                    <h4 style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Esperando Ficha Clínica</h4>
-                    <p style={{ color: "var(--muted)", fontSize: "0.85rem", lineHeight: 1.5, maxWidth: "38ch", margin: "0 auto" }}>
+                <div className="panel" style={{ textAlign: "center", padding: "2.5rem 1.5rem", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)" }}>
+                    <i className="bi bi-person-exclamation" style={{ fontSize: "3rem", color: "var(--primary)", display: "block", marginBottom: "1rem" }} />
+                    <h4 style={{ fontWeight: 800, marginBottom: "0.5rem" }}>Esperando Ficha Clínica</h4>
+                    <p style={{ color: "var(--muted)", fontSize: "0.88rem", lineHeight: 1.5, maxWidth: "42ch", margin: "0 auto" }}>
                         Pídele a tu nutriólogo que te registre en su directorio usando el correo{" "}
-                        <strong>{auth.username}</strong> para ver tus datos aquí.
+                        <strong>{auth.username}</strong> para sincronizar tu plan y citas automáticamente.
                     </p>
                 </div>
             </div>
@@ -263,11 +281,11 @@ function DashboardPage() {
     }
 
     return (
-        <div className="dash-grid" style={{ maxWidth: 640, margin: "0 auto" }}>
+        <div className="dash-grid" style={{ maxWidth: 680, margin: "0 auto" }}>
             {/* Bienvenida */}
             <div className="patient-welcome">
                 <h3>¡Hola, {getFirstName(auth.fullName)}! </h3>
-                <p>Bienvenido a tu portal de salud NutriTrack.</p>
+                <p>Bienvenido a tu portal de salud NutriTrack. Registra tus hábitos y sigue tu progreso.</p>
             </div>
 
             {/* Metrics 2×2 — stays 2 columns on all sizes */}
@@ -331,15 +349,38 @@ function DashboardPage() {
                 </div>
             </div>
 
-            {/* CTA */}
-            <button
-                onClick={() => navigate("/planes")}
-                className="btn large"
-                style={{ width: "100%", justifyContent: "center", gap: "0.75rem", fontSize: "1rem" }}
-            >
-                <i className="bi bi-apple" style={{ fontSize: "1.2rem" }} />
-                Ver mi plan alimenticio
-            </button>
+            {/* Quick Action Bar */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <button
+                    type="button"
+                    onClick={() => navigate("/planes")}
+                    className="btn large"
+                    style={{ justifyContent: "center", gap: "0.5rem", fontSize: "0.92rem", background: "var(--primary)", border: "none" }}
+                >
+                    <i className="bi bi-apple" />
+                    Ver mi plan
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setIsShoppingModalOpen(true)}
+                    className="btn secondary large"
+                    style={{ justifyContent: "center", gap: "0.5rem", fontSize: "0.92rem" }}
+                    disabled={!patientActivePlan}
+                >
+                    <i className="bi bi-cart3" />
+                    Lista del súper
+                </button>
+            </div>
+
+            {/* Patient Daily Habits Tracker (Water, Meals, Mood) */}
+            <PatientHabitsTracker activePlan={patientActivePlan} />
+
+            {/* Shopping List Modal */}
+            <ShoppingListModal
+                plan={patientActivePlan}
+                isOpen={isShoppingModalOpen}
+                onClose={() => setIsShoppingModalOpen(false)}
+            />
         </div>
     );
 }

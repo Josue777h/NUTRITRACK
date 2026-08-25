@@ -52,25 +52,29 @@ export const userService = {
         });
         if (error) throw error;
 
-        // Crear el perfil correspondiente en la tabla profiles
-        if (data.user) {
-            const { error: profileError } = await supabase
-                .from("profiles")
-                .insert({
-                    id: data.user.id,
-                    role,
-                    full_name: fullName,
-                    email
-                });
-            if (profileError) {
-                console.error("Error al crear perfil en Supabase:", profileError);
-            }
-        }
+        // El trigger handle_new_user crea el perfil en la base de datos. Esto
+        // también funciona cuando Supabase exige confirmar el correo primero.
         return data;
     },
 
     async signOut() {
         if (!isSupabaseConfigured) return;
         await supabase.auth.signOut();
+    },
+
+    async updatePassword(password) {
+        if (!isSupabaseConfigured) return null;
+        const { data, error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        return data;
+    },
+
+    async resetPassword(email) {
+        if (!isSupabaseConfigured) return null;
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/perfil`
+        });
+        if (error) throw error;
+        return data;
     }
 };

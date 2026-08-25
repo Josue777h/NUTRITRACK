@@ -1,11 +1,14 @@
 import { supabase, isSupabaseConfigured } from "./supabaseClient";
 
 export const nutritionPlanService = {
-    async getPlans(patientId = null) {
+    async getPlans(patientIds = []) {
         if (!isSupabaseConfigured) return [];
         let query = supabase.from("nutrition_plans").select("*");
-        if (patientId) {
-            query = query.eq("patient_id", patientId);
+        const ids = Array.isArray(patientIds) ? patientIds : [patientIds];
+        if (ids.length === 1) {
+            query = query.eq("patient_id", ids[0]);
+        } else if (ids.length > 1) {
+            query = query.in("patient_id", ids);
         }
         const { data, error } = await query.order("created_at", { ascending: false });
         if (error) throw error;

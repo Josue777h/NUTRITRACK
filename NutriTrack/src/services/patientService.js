@@ -35,6 +35,8 @@ export const patientService = {
                 target: patientData.target,
                 notes: patientData.notes || "",
                 email: patientData.email || null,
+                phone: patientData.phone || null,
+                gender: patientData.gender || null,
                 nutriologo_id: nutriologoId,
                 user_id: patientData.user_id || null,
                 allergies: patientData.allergies || [],
@@ -58,6 +60,8 @@ export const patientService = {
                 target: patientData.target,
                 notes: patientData.notes || "",
                 email: patientData.email || null,
+                phone: patientData.phone || null,
+                gender: patientData.gender || null,
                 user_id: patientData.user_id || null,
                 allergies: patientData.allergies || [],
                 conditions: patientData.conditions || []

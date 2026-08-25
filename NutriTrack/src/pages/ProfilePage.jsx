@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { roleLabels } from "../data/mockData";
+import { roleLabels } from "../data/appNavigation";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 
@@ -208,31 +208,7 @@ function ProfilePage({ onLogout, defaultTab }) {
         showSuccess("✓ Horarios y disponibilidad guardados.");
     };
 
-    const handleSavePhysical = (e) => {
-        e.preventDefault();
-        if (!currentPatient) return;
-        updatePatient(currentPatient.id, {
-            ...currentPatient,
-            weight: Number(physicalForm.weight),
-            height: Number(physicalForm.height),
-            target: physicalForm.target
-        });
-        showSuccess("✓ Datos físicos actualizados.");
-    };
-
-    const handleSaveMedical = (e) => {
-        e.preventDefault();
-        if (!currentPatient) return;
-        updatePatient(currentPatient.id, {
-            ...currentPatient,
-            allergies: medicalForm.allergies ? medicalForm.allergies.split(",").map(a => a.trim()).filter(Boolean) : [],
-            conditions: medicalForm.conditions ? medicalForm.conditions.split(",").map(c => c.trim()).filter(Boolean) : [],
-            notes: medicalForm.notes
-        });
-        showSuccess("✓ Historial médico actualizado.");
-    };
-
-    const handleChangePassword = (e) => {
+    const handleChangePassword = async (e) => {
         e.preventDefault();
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
             showError("Las contraseñas nuevas no coinciden. Verifica e intenta de nuevo.");
@@ -242,7 +218,7 @@ function ProfilePage({ onLogout, defaultTab }) {
             showWarning("Tu contraseña es demasiado débil. Usa al menos 8 caracteres.");
             return;
         }
-        const result = changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+        const result = await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
         if (result.ok) {
             showSuccess("🔐 Contraseña actualizada exitosamente.");
             setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });

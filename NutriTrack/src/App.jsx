@@ -1,15 +1,22 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import PrivateRoute from "./components/PrivateRoute";
 import AppLayout from "./layout/AppLayout";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import DashboardPage from "./pages/DashboardPage";
-import PatientsPage from "./pages/PatientsPage";
-import AppointmentsPage from "./pages/AppointmentsPage";
-import PlansPage from "./pages/PlansPage";
-import ReportsPage from "./pages/ReportsPage";
-import ProfilePage from "./pages/ProfilePage";
 import { useApp } from "./context/AppContext";
+
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const PatientsPage = lazy(() => import("./pages/PatientsPage"));
+const AppointmentsPage = lazy(() => import("./pages/AppointmentsPage"));
+const PlansPage = lazy(() => import("./pages/PlansPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+
+function PageLoader() {
+    return <main className="route-loading" role="status">Cargando…</main>;
+}
 
 function App() {
     const navigate = useNavigate();
@@ -28,13 +35,17 @@ function App() {
         navigate("/login", { replace: true });
     };
 
+    const withSuspense = (page) => (
+        <Suspense fallback={<PageLoader />}>{page}</Suspense>
+    );
+
     const withLayout = (page, allowedRoles) => (
         <PrivateRoute
             isAuthenticated={auth.isAuthenticated}
             role={auth.role}
             allowedRoles={allowedRoles}
         >
-            <AppLayout onLogout={handleLogout}>{page}</AppLayout>
+            <AppLayout onLogout={handleLogout}>{withSuspense(page)}</AppLayout>
         </PrivateRoute>
     );
 
@@ -55,7 +66,7 @@ function App() {
                     auth.isAuthenticated ? (
                         <Navigate to="/dashboard" replace />
                     ) : (
-                        <LoginPage onLogin={handleLogin} />
+                        withSuspense(<LoginPage onLogin={handleLogin} />)
                     )
                 }
             />
@@ -65,7 +76,7 @@ function App() {
                     auth.isAuthenticated ? (
                         <Navigate to="/dashboard" replace />
                     ) : (
-                        <RegisterPage />
+                        withSuspense(<RegisterPage />)
                     )
                 }
             />
@@ -79,7 +90,7 @@ function App() {
             <Route path="/reportes" element={withLayout(<ReportsPage />)} />
             <Route path="/perfil" element={withLayout(<ProfilePage onLogout={handleLogout} />)} />
             <Route path="/configuracion" element={withLayout(<ProfilePage onLogout={handleLogout} defaultTab="configuracion" />)} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={withSuspense(<NotFoundPage />)} />
         </Routes>
     );
 }

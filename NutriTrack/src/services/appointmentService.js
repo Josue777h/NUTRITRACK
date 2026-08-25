@@ -10,11 +10,14 @@ function formatStatus(status) {
 }
 
 export const appointmentService = {
-    async getAppointments(patientId = null) {
+    async getAppointments(patientIds = []) {
         if (!isSupabaseConfigured) return [];
         let query = supabase.from("appointments").select("*");
-        if (patientId) {
-            query = query.eq("patient_id", patientId);
+        const ids = Array.isArray(patientIds) ? patientIds : [patientIds];
+        if (ids.length === 1) {
+            query = query.eq("patient_id", ids[0]);
+        } else if (ids.length > 1) {
+            query = query.in("patient_id", ids);
         }
         const { data, error } = await query.order("date", { ascending: true });
         if (error) throw error;

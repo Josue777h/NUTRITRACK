@@ -13,9 +13,9 @@ function formatDate(dateValue) {
     });
 }
 
-const PatientDetailsModal = ({ patient, isOpen, onClose, onUpdate, onDelete, showEditMode, onEdit }) => {
+const PatientDetailsModal = ({ patient, isOpen, onClose, onUpdate, onDelete, showEditMode }) => {
     const { showSuccess, showError } = useToast();
-    const { appointments, plans, reports, addReport, deleteReport } = useApp();
+    const { appointments, plans, reports, addReport } = useApp();
     const [isEditing, setIsEditing] = useState(showEditMode || false);
     const [editForm, setEditForm] = useState({});
     const [activeTab, setActiveTab] = useState("resumen");
@@ -98,7 +98,7 @@ const PatientDetailsModal = ({ patient, isOpen, onClose, onUpdate, onDelete, sho
             };
             onUpdate(updatedPatient);
             setIsEditing(false);
-        } catch (error) {
+        } catch {
             showError("Error al guardar la información.");
         }
     };
@@ -400,8 +400,6 @@ const PatientDetailsModal = ({ patient, isOpen, onClose, onUpdate, onDelete, sho
 
     const renderSeguimiento = () => {
         const weights = patientReports.map((r) => r.weight);
-        const dates = patientReports.map((r) => r.date.split("-")[2]); // days
-
         return (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <h4>Seguimiento y Antropometría</h4>
