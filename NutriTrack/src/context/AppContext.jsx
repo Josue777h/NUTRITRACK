@@ -254,33 +254,39 @@ function AppProvider({ children }) {
             try {
                 const data = await userService.signIn(normalizedEmail, password);
                 if (data?.user) {
-                    const profile = await userService.getProfile(data.user.id);
-                    const role = profile?.role || "usuario";
-                    const fullName = profile?.full_name || data.user.email;
+                    const session = data.session || (await supabase.auth.getSession())?.data?.session;
+                    if (session) {
+                        await loadUserData(session);
+                    } else {
+                        const profile = await userService.getProfile(data.user.id);
+                        const role = profile?.role || "usuario";
+                        const fullName = profile?.full_name || data.user.email;
 
-                    const fetchedPatients = await patientService.getPatients();
-                    let patientId = null;
-                    if (role === "usuario") {
-                        const myPatient = fetchedPatients.find(
-                            (p) => p.user_id === data.user.id || p.email?.toLowerCase() === normalizedEmail
-                        );
-                        patientId = myPatient ? myPatient.id : null;
-                    }
-
-                    setState((prev) => ({
-                        ...prev,
-                        auth: {
-                            isAuthenticated: true,
-                            role,
-                            username: data.user.email,
-                            fullName,
-                            patientId,
-                            uid: data.user.id
+                        const fetchedPatients = await patientService.getPatients();
+                        let patientId = null;
+                        if (role === "usuario") {
+                            const myPatient = fetchedPatients.find(
+                                (p) => p.user_id === data.user.id || p.email?.toLowerCase() === normalizedEmail
+                            );
+                            patientId = myPatient ? myPatient.id : null;
                         }
-                    }));
+
+                        setState((prev) => ({
+                            ...prev,
+                            auth: {
+                                isAuthenticated: true,
+                                role,
+                                username: data.user.email,
+                                fullName,
+                                patientId,
+                                uid: data.user.id
+                            }
+                        }));
+                    }
                     
                     // Auditoría de login exitoso
-                    auditLogger.auditLogin(data.user.id, data.user.email, role);
+                    const currentProfile = await userService.getProfile(data.user.id);
+                    auditLogger.auditLogin(data.user.id, data.user.email, currentProfile?.role || "usuario");
                     
                     return { ok: true };
                 }
@@ -747,18 +753,22 @@ function AppProvider({ children }) {
     };
 
     const addReport = async (payload) => {
+        const weightVal = Number(payload.weight);
+        const bmiVal = Number(payload.bmi);
+        const calVal = Number(payload.calories);
+
         let newReport = {
             patientId: Number(payload.patientId),
-            date: payload.date,
-            weight: Number(payload.weight),
-            bmi: Number(payload.bmi),
-            calories: Number(payload.calories),
-            notes: payload.notes || "",
+            date: payload.date || new Date().toISOString().split("T")[0],
+            weight: !isNaN(weightVal) && weightVal > 0 ? weightVal : 70,
+            bmi: !isNaN(bmiVal) && bmiVal >= 5 ? bmiVal : 24,
+            calories: !isNaN(calVal) && calVal >= 0 ? calVal : 2000,
+            notes: payload.notes || payload.content || payload.title || "",
             feeling: payload.feeling || "",
             observations: payload.observations || "",
             diagnosis: payload.diagnosis || "",
             type: payload.type || "progreso",
-            recommendations: payload.recommendations || [],
+            recommendations: Array.isArray(payload.recommendations) ? payload.recommendations : [],
             nextSteps: payload.nextSteps || "",
             conclusion: payload.conclusion || ""
         };
@@ -774,7 +784,15 @@ function AppProvider({ children }) {
                         date: saved.date,
                         weight: Number(saved.weight),
                         bmi: Number(saved.bmi),
-                        calories: Number(saved.calories)
+                        calories: Number(saved.calories),
+                        type: saved.type || newReport.type,
+                        notes: saved.notes || newReport.notes,
+                        feeling: saved.feeling || newReport.feeling,
+                        observations: saved.observations || newReport.observations,
+                        diagnosis: saved.diagnosis || newReport.diagnosis,
+                        recommendations: saved.recommendations || newReport.recommendations,
+                        nextSteps: saved.next_steps || newReport.nextSteps,
+                        conclusion: saved.conclusion || newReport.conclusion,
                     };
                     // Auditoría de creación de reporte
                     auditLogger.auditReportAction("CREATED", newReport.id, newReport.patientId, state.auth.uid);
@@ -791,23 +809,34 @@ function AppProvider({ children }) {
 
         setState((prev) => ({
             ...prev,
-            reports: [...prev.reports, newReport].sort(byRecentDate)
+            patients: prev.patients.map((p) =>
+                Number(p.id) === Number(newReport.patientId)
+                    ? { ...p, weight: newReport.weight, bmi: newReport.bmi }
+                    : p
+            ),
+            reports: [...prev.reports.filter((r) => r.id !== newReport.id), newReport].sort(byRecentDate)
         }));
+
+        return newReport;
     };
 
     const updateReport = async (id, updatedReport) => {
+        const weightVal = Number(updatedReport.weight);
+        const bmiVal = Number(updatedReport.bmi);
+        const calVal = Number(updatedReport.calories);
+
         const payload = {
             patientId: Number(updatedReport.patientId),
-            date: updatedReport.date,
-            weight: Number(updatedReport.weight),
-            bmi: Number(updatedReport.bmi),
-            calories: Number(updatedReport.calories),
+            date: updatedReport.date || new Date().toISOString().split("T")[0],
+            weight: !isNaN(weightVal) && weightVal > 0 ? weightVal : 70,
+            bmi: !isNaN(bmiVal) && bmiVal >= 5 ? bmiVal : 24,
+            calories: !isNaN(calVal) && calVal >= 0 ? calVal : 2000,
             type: updatedReport.type || "progreso",
-            notes: updatedReport.notes || "",
+            notes: updatedReport.notes || updatedReport.content || updatedReport.title || "",
             feeling: updatedReport.feeling || "",
             observations: updatedReport.observations || "",
             diagnosis: updatedReport.diagnosis || "",
-            recommendations: updatedReport.recommendations || [],
+            recommendations: Array.isArray(updatedReport.recommendations) ? updatedReport.recommendations : [],
             nextSteps: updatedReport.nextSteps || "",
             conclusion: updatedReport.conclusion || ""
         };
@@ -823,7 +852,7 @@ function AppProvider({ children }) {
         setState((prev) => ({
             ...prev,
             reports: prev.reports
-                .map((item) => (item.id === id ? { ...item, ...payload } : item))
+                .map((item) => (item.id === id ? { ...item, ...payload, id } : item))
                 .sort(byRecentDate)
         }));
     };

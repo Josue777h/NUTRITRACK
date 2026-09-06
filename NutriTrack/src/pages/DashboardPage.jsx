@@ -26,7 +26,7 @@ function getGreeting() {
 
 function DashboardPage() {
     const navigate = useNavigate();
-    const { showSuccess, showWarning } = useToast();
+    const { showSuccess, showWarning, showError } = useToast();
     const { auth, patients, appointments, plans, reports,
         addPatient, addAppointment, addPlan, addReport } = useApp();
 
@@ -66,7 +66,17 @@ function DashboardPage() {
     const handleSavePatient = async (d) => { await addPatient(d); showSuccess("Paciente registrado."); setIsPatientModalOpen(false); };
     const handleSaveAppointment = (d) => { addAppointment(d); showSuccess("Cita agendada."); setIsAppointmentModalOpen(false); };
     const handleSavePlan = (d) => { addPlan(d); showSuccess("Plan creado."); setIsPlanModalOpen(false); };
-    const handleSaveReport = (d) => { addReport(d); showSuccess("Consulta registrada."); setIsReportModalOpen(false); };
+    const handleSaveReport = async (d) => {
+        try {
+            await addReport(d);
+            showSuccess("Consulta registrada con éxito.");
+            setIsReportModalOpen(false);
+        } catch (error) {
+            console.error("Error al registrar consulta:", error);
+            showError("Error al registrar consulta: " + (error?.message || ""));
+            throw error;
+        }
+    };
 
     const openAppointmentModal = () => {
         if (!patients.length) { showWarning("Primero registra un paciente."); setIsPatientModalOpen(true); }

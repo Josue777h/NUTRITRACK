@@ -355,24 +355,11 @@
 
 /* Enhanced table row interactions */
 .table tbody tr {
-    transition: all 0.2s ease;
-    position: relative;
+    transition: background 0.15s ease;
 }
 
-.table tbody tr::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    width: 3px;
-    background: var(--primary);
-    transform: scaleY(0);
-    transition: transform 0.2s ease;
-}
-
-.table tbody tr:hover::before {
-    transform: scaleY(1);
+.table tbody tr:hover td:first-child {
+    box-shadow: inset 3px 0 0 var(--primary);
 }
 
 /* Enhanced stat cards */

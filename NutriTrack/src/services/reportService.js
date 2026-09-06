@@ -18,12 +18,16 @@ export const reportService = {
     async createReport(reportData) {
         if (!isSupabaseConfigured) return null;
 
+        const weightVal = Number(reportData.weight);
+        const bmiVal = Number(reportData.bmi);
+        const calVal = Number(reportData.calories);
+
         const payload = {
             patient_id: Number(reportData.patientId),
-            date: reportData.date,
-            weight: Number(reportData.weight),
-            bmi: Number(reportData.bmi),
-            calories: Number(reportData.calories)
+            date: reportData.date || new Date().toISOString().split("T")[0],
+            weight: !isNaN(weightVal) && weightVal > 0 ? weightVal : 70,
+            bmi: !isNaN(bmiVal) && bmiVal >= 5 ? bmiVal : 24,
+            calories: !isNaN(calVal) && calVal >= 0 ? calVal : 2000
         };
 
         const extendedPayload = {
@@ -33,7 +37,7 @@ export const reportService = {
             feeling: reportData.feeling || "",
             observations: reportData.observations || "",
             diagnosis: reportData.diagnosis || "",
-            recommendations: reportData.recommendations || [],
+            recommendations: Array.isArray(reportData.recommendations) ? reportData.recommendations : [],
             next_steps: reportData.nextSteps || "",
             conclusion: reportData.conclusion || ""
         };
@@ -62,12 +66,16 @@ export const reportService = {
     async updateReport(id, reportData) {
         if (!isSupabaseConfigured) return null;
 
+        const weightVal = Number(reportData.weight);
+        const bmiVal = Number(reportData.bmi);
+        const calVal = Number(reportData.calories);
+
         const payload = {
             patient_id: Number(reportData.patientId),
-            date: reportData.date,
-            weight: Number(reportData.weight),
-            bmi: Number(reportData.bmi),
-            calories: Number(reportData.calories)
+            date: reportData.date || new Date().toISOString().split("T")[0],
+            weight: !isNaN(weightVal) && weightVal > 0 ? weightVal : 70,
+            bmi: !isNaN(bmiVal) && bmiVal >= 5 ? bmiVal : 24,
+            calories: !isNaN(calVal) && calVal >= 0 ? calVal : 2000
         };
 
         const extendedPayload = {
@@ -77,7 +85,7 @@ export const reportService = {
             feeling: reportData.feeling || "",
             observations: reportData.observations || "",
             diagnosis: reportData.diagnosis || "",
-            recommendations: reportData.recommendations || [],
+            recommendations: Array.isArray(reportData.recommendations) ? reportData.recommendations : [],
             next_steps: reportData.nextSteps || "",
             conclusion: reportData.conclusion || ""
         };

@@ -1,35 +1,83 @@
-function BarChart({ labels = [], values = [], color = "#49b54c" }) {
-    if (!values.length) return null;
+function BarChart({ labels = [], values = [], color = "#f59e0b" }) {
+    if (!values || !values.length) return null;
     const max = Math.max(...values, 1);
 
     return (
-        <div className="bar-chart" style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem", height: "130px", padding: "0.5rem 0.25rem 0" }}>
-            {values.map((value, index) => {
-                const pct = Math.max(8, Math.min(100, Math.round((value / max) * 100)));
-                return (
-                    <article className="bar-item" key={`${labels[index]}-${value}`} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", gap: "0.4rem" }}>
-                        <span style={{ fontSize: "0.7rem", fontWeight: "700", color: "var(--muted)", opacity: 0.85 }}>{value}</span>
-                        <div
-                            className="bar"
+        <div style={{ width: "100%", height: "130px", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+            <div
+                className="bar-chart"
+                style={{
+                    display: "flex",
+                    alignItems: "flex-end",
+                    justifyContent: values.length === 1 ? "center" : "space-around",
+                    gap: "0.75rem",
+                    height: "105px",
+                    padding: "0 0.5rem",
+                    borderBottom: "1px solid var(--line)"
+                }}
+            >
+                {values.map((value, index) => {
+                    const pct = Math.max(12, Math.min(100, Math.round((value / max) * 100)));
+                    const label = labels[index] || `#${index + 1}`;
+                    return (
+                        <article
+                            className="bar-item"
+                            key={`${label}-${index}-${value}`}
                             style={{
-                                width: "100%",
-                                maxWidth: "36px",
-                                height: `${pct}%`,
-                                background: `linear-gradient(180deg, ${color} 0%, ${color}CC 100%)`,
-                                borderRadius: "6px 6px 2px 2px",
-                                transition: "height 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-                                boxShadow: `0 2px 8px ${color}33`
+                                flex: values.length === 1 ? "0 1 70px" : 1,
+                                maxWidth: "56px",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                height: "100%",
+                                justifyContent: "flex-end",
+                                gap: "0.35rem"
                             }}
-                        />
-                        <span style={{ fontSize: "0.72rem", color: "var(--text-light)", fontWeight: "600", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "48px" }}>
-                            {labels[index]}
-                        </span>
-                    </article>
-                );
-            })}
+                        >
+                            <span
+                                style={{
+                                    fontSize: "0.7rem",
+                                    fontWeight: "700",
+                                    color: "var(--text)",
+                                    opacity: 0.9,
+                                    whiteSpace: "nowrap"
+                                }}
+                            >
+                                {value}
+                            </span>
+                            <div
+                                className="bar"
+                                style={{
+                                    width: "100%",
+                                    minWidth: "22px",
+                                    height: `${pct}%`,
+                                    background: `linear-gradient(180deg, ${color} 0%, ${color}CC 100%)`,
+                                    borderRadius: "5px 5px 2px 2px",
+                                    transition: "height 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    boxShadow: `0 3px 8px ${color}33`
+                                }}
+                            />
+                            <span
+                                style={{
+                                    fontSize: "0.68rem",
+                                    color: "var(--muted)",
+                                    fontWeight: "600",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    maxWidth: "50px",
+                                    marginTop: "2px"
+                                }}
+                                title={label}
+                            >
+                                {label}
+                            </span>
+                        </article>
+                    );
+                })}
+            </div>
         </div>
     );
 }
 
 export default BarChart;
-

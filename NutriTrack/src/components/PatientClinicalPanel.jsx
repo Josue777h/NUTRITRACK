@@ -244,11 +244,11 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
         onUpdate(updated);
     };
 
-    const handleAddConsultation = (e) => {
+    const handleAddConsultation = async (e) => {
         e.preventDefault();
-        const w = Number(consultForm.weight);
-        const h = Number(consultForm.height);
-        if (!w || !h) {
+        const w = Number(String(consultForm.weight).replace(",", "."));
+        const h = Number(String(consultForm.height).replace(",", "."));
+        if (!w || isNaN(w) || w <= 0 || !h || isNaN(h) || h <= 0) {
             showError("Ingresa peso y altura válidos.");
             return;
         }
@@ -257,37 +257,42 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
 
         const newReport = {
             patientId: patient.id,
-            date: consultForm.date,
+            date: consultForm.date || new Date().toISOString().split("T")[0],
             weight: w,
             bmi: Number(calculatedBmi),
-            calories: Number(consultForm.calories),
-            notes: consultForm.recommendations,
-            feeling: consultForm.feeling,
-            observations: consultForm.observations,
-            diagnosis: consultForm.diagnosis
+            calories: Number(consultForm.calories) || 2000,
+            notes: consultForm.recommendations || "",
+            feeling: consultForm.feeling || "bien",
+            observations: consultForm.observations || "",
+            diagnosis: consultForm.diagnosis || ""
         };
 
-        addReport(newReport);
+        try {
+            await addReport(newReport);
 
-        // Auto update patient weight/height
-        const updatedPatient = {
-            ...patient,
-            weight: w,
-            height: h
-        };
-        onUpdate(updatedPatient);
+            // Auto update patient weight/height
+            const updatedPatient = {
+                ...patient,
+                weight: w,
+                height: h
+            };
+            await onUpdate(updatedPatient);
 
-        // Clear Form & Show Success
-        setConsultForm(prev => ({
-            ...prev,
-            weight: "",
-            feeling: "bien",
-            observations: "",
-            diagnosis: "",
-            recommendations: "",
-            calories: "2000"
-        }));
-        showSuccess("Consulta registrada exitosamente.");
+            // Clear Form & Show Success
+            setConsultForm(prev => ({
+                ...prev,
+                weight: "",
+                feeling: "bien",
+                observations: "",
+                diagnosis: "",
+                recommendations: "",
+                calories: "2000"
+            }));
+            showSuccess("Consulta registrada exitosamente.");
+        } catch (err) {
+            console.error("Error al registrar consulta:", err);
+            showError("Error al registrar consulta: " + (err?.message || ""));
+        }
     };
 
     const openCreatePlan = () => {

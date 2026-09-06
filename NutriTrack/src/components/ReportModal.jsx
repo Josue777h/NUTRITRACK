@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useToast } from '../context/ToastContext';
 
-const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSave, onDelete, mode = 'view' }) => {
+const ReportModal = ({ report, patients = [], defaultPatientId, isOpen, onClose, onSave, onDelete, mode = 'view' }) => {
     const { showSuccess, showError } = useToast();
-    const [isEditing, setIsEditing] = useState(mode === 'edit');
+    const [isEditing, setIsEditing] = useState(mode === 'edit' || mode === 'add');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [form, setForm] = useState({
         patientId: '',
-        title: '',
+        title: 'Reporte de seguimiento',
         type: 'progreso',
         date: new Date().toISOString().split('T')[0],
+        calories: '2000',
         content: '',
         metrics: {
             weight: '',
@@ -37,12 +39,13 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
     ];
 
     useEffect(() => {
-        if (report && mode === 'edit') {
+        if (report && (mode === 'edit' || mode === 'view')) {
             setForm({
                 patientId: report.patientId?.toString() || '',
-                title: report.title || report.type || 'Reporte de progreso',
+                title: report.title || (report.type ? `Reporte de ${report.type}` : 'Reporte de seguimiento'),
                 type: report.type || 'progreso',
                 date: report.date || new Date().toISOString().split('T')[0],
+                calories: String(report.calories ?? report.metrics?.calories ?? '2000'),
                 content: report.content || report.notes || report.observations || '',
                 metrics: {
                     weight: report.metrics?.weight ?? report.weight ?? '',
@@ -57,22 +60,34 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
                         legs: report.metrics?.measurements?.legs || ''
                     }
                 },
-                recommendations: report.recommendations || [],
+                recommendations: Array.isArray(report.recommendations) ? [...report.recommendations] : [],
                 nextSteps: report.nextSteps || '',
                 conclusion: report.conclusion || ''
             });
+            setIsEditing(mode === 'edit');
         } else if (mode === 'add') {
             const initialPatientId = defaultPatientId ? String(defaultPatientId) : (patients?.[0]?.id ? String(patients[0].id) : '');
+            const initialPatient = (patients || []).find(p => String(p.id) === String(initialPatientId));
+            const initialHeight = initialPatient?.height ? String(initialPatient.height) : '';
+            const initialWeight = initialPatient?.weight ? String(initialPatient.weight) : '';
+            let initialBmi = '';
+            const numW = parseFloat(String(initialWeight).replace(',', '.'));
+            const numH = parseFloat(String(initialHeight).replace(',', '.')) / 100;
+            if (numW > 0 && numH > 0) {
+                initialBmi = (numW / (numH * numH)).toFixed(1);
+            }
+
             setForm({
                 patientId: initialPatientId,
-                title: 'Reporte de progreso',
+                title: 'Reporte de seguimiento',
                 type: 'progreso',
                 date: new Date().toISOString().split('T')[0],
+                calories: '2000',
                 content: '',
                 metrics: {
-                    weight: '',
-                    height: '',
-                    bmi: '',
+                    weight: initialWeight,
+                    height: initialHeight,
+                    bmi: initialBmi,
                     bodyFat: '',
                     muscleMass: '',
                     measurements: {
@@ -86,23 +101,65 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
                 nextSteps: '',
                 conclusion: ''
             });
+            setIsEditing(true);
         }
-        setIsEditing(mode === 'edit' || mode === 'add');
     }, [report, mode, defaultPatientId, patients]);
 
     if (!isOpen) return null;
 
+    const handlePatientChange = (e) => {
+        const newPatientId = e.target.value;
+        const selectedP = (patients || []).find(p => String(p.id) === String(newPatientId));
+        setForm(prev => {
+            const h = selectedP?.height ? String(selectedP.height) : prev.metrics.height;
+            const w = prev.metrics.weight || (selectedP?.weight ? String(selectedP.weight) : '');
+            let calculatedBmi = prev.metrics.bmi;
+            const numW = parseFloat(String(w).replace(',', '.'));
+            const numH = parseFloat(String(h).replace(',', '.')) / 100;
+            if (numW > 0 && numH > 0) {
+                calculatedBmi = (numW / (numH * numH)).toFixed(1);
+            }
+            return {
+                ...prev,
+                patientId: newPatientId,
+                metrics: {
+                    ...prev.metrics,
+                    height: h,
+                    weight: w,
+                    bmi: calculatedBmi
+                }
+            };
+        });
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'patientId') {
+            handlePatientChange(e);
+            return;
+        }
+
         if (name.includes('.')) {
             const [parent, child] = name.split('.');
-            setForm(prev => ({
-                ...prev,
-                [parent]: {
+            setForm(prev => {
+                const nextChild = {
                     ...prev[parent],
                     [child]: value
+                };
+                if (parent === 'metrics' && (child === 'weight' || child === 'height')) {
+                    const wStr = String(child === 'weight' ? value : nextChild.weight).replace(',', '.');
+                    const hStr = String(child === 'height' ? value : nextChild.height).replace(',', '.');
+                    const w = parseFloat(wStr);
+                    const h = parseFloat(hStr) / 100;
+                    if (w > 0 && h > 0) {
+                        nextChild.bmi = (w / (h * h)).toFixed(1);
+                    }
                 }
-            }));
+                return {
+                    ...prev,
+                    [parent]: nextChild
+                };
+            });
         } else {
             setForm(prev => ({ ...prev, [name]: value }));
         }
@@ -156,31 +213,67 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
         }
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        
-        if (!form.patientId) {
-            showError('Por favor selecciona un paciente');
+    const handleSubmit = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+
+        const pId = parseInt(form.patientId, 10);
+        if (!pId || isNaN(pId)) {
+            showError('Por favor selecciona un paciente válido');
             return;
         }
+
+        const weightStr = String(form.metrics.weight).replace(',', '.');
+        const weightVal = parseFloat(weightStr);
+        if (isNaN(weightVal) || weightVal <= 0) {
+            showError('Por favor ingresa un peso válido (mayor a 0 kg)');
+            return;
+        }
+
+        const heightStr = String(form.metrics.height).replace(',', '.');
+        const heightVal = parseFloat(heightStr);
+
+        let bmiVal = parseFloat(String(form.metrics.bmi).replace(',', '.'));
+        if (isNaN(bmiVal) || bmiVal <= 0) {
+            if (heightVal > 0) {
+                bmiVal = parseFloat((weightVal / ((heightVal / 100) * (heightVal / 100))).toFixed(1));
+            } else {
+                bmiVal = 24.0;
+            }
+        }
+
+        const caloriesVal = parseInt(String(form.calories).replace(',', '.'), 10) || 2000;
 
         const reportData = {
             ...report,
             ...form,
-            patientId: parseInt(form.patientId, 10),
-            notes: form.content || form.notes || form.title || "",
-            weight: Number(form.metrics.weight) || (report?.weight ? Number(report.weight) : 70),
-            bmi: Number(form.metrics.bmi) || (report?.bmi ? Number(report.bmi) : 24),
-            calories: Number(form.calories) || (report?.calories ? Number(report.calories) : 2000)
+            patientId: pId,
+            title: form.title?.trim() || "Reporte de progreso",
+            date: form.date || new Date().toISOString().split('T')[0],
+            notes: form.content?.trim() || form.notes || form.title || "",
+            content: form.content?.trim() || "",
+            weight: weightVal,
+            bmi: bmiVal,
+            calories: caloriesVal,
+            metrics: {
+                ...form.metrics,
+                weight: weightVal,
+                bmi: bmiVal
+            }
         };
 
         if (mode === 'add') {
-            reportData.id = Date.now();
             reportData.createdAt = new Date().toISOString();
         }
 
-        onSave(reportData);
-        onClose();
+        setIsSubmitting(true);
+        try {
+            await onSave(reportData);
+        } catch (err) {
+            console.error("Error al guardar reporte:", err);
+            showError("Error al guardar reporte: " + (err?.message || ""));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleEdit = () => {
@@ -195,14 +288,15 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
             if (report) {
                 setForm({
                     patientId: report.patientId?.toString() || '',
-                    title: report.title || '',
+                    title: report.title || (report.type ? `Reporte de ${report.type}` : 'Reporte de seguimiento'),
                     type: report.type || 'progreso',
                     date: report.date || new Date().toISOString().split('T')[0],
-                    content: report.content || '',
+                    calories: String(report.calories ?? report.metrics?.calories ?? '2000'),
+                    content: report.content || report.notes || report.observations || '',
                     metrics: {
-                        weight: report.metrics?.weight || '',
+                        weight: report.metrics?.weight ?? report.weight ?? '',
                         height: report.metrics?.height || '',
-                        bmi: report.metrics?.bmi || '',
+                        bmi: report.metrics?.bmi ?? report.bmi ?? '',
                         bodyFat: report.metrics?.bodyFat || '',
                         muscleMass: report.metrics?.muscleMass || '',
                         measurements: {
@@ -212,7 +306,7 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
                             legs: report.metrics?.measurements?.legs || ''
                         }
                     },
-                    recommendations: report.recommendations || [],
+                    recommendations: Array.isArray(report.recommendations) ? [...report.recommendations] : [],
                     nextSteps: report.nextSteps || '',
                     conclusion: report.conclusion || ''
                 });
@@ -229,8 +323,8 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
     };
 
     const getPatientName = (patientId) => {
-        const patient = patients.find(p => p.id === parseInt(patientId));
-        return patient ? patient.name : 'Paciente no encontrado';
+        const patient = (patients || []).find(p => String(p.id) === String(patientId));
+        return patient ? patient.name : 'Paciente';
     };
 
     const getTypeLabel = (type) => {
@@ -238,134 +332,150 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
         return typeOption ? typeOption.label : type;
     };
 
-    const renderViewMode = () => (
-        <div className="modal-details">
-            <div className="detail-section">
-                <h4>Información del Reporte</h4>
-                <div className="detail-grid">
-                    <div className="detail-item">
-                        <label>Título:</label>
-                        <span>{report.title}</span>
-                    </div>
-                    <div className="detail-item">
-                        <label>Paciente:</label>
-                        <span>{getPatientName(report.patientId)}</span>
-                    </div>
-                    <div className="detail-item">
-                        <label>Tipo:</label>
-                        <span>{getTypeLabel(report.type)}</span>
-                    </div>
-                    <div className="detail-item">
-                        <label>Fecha:</label>
-                        <span>{report.date}</span>
+    const renderViewMode = () => {
+        const weight = report?.metrics?.weight ?? report?.weight;
+        const height = report?.metrics?.height;
+        const bmi = report?.metrics?.bmi ?? report?.bmi;
+        const calories = report?.metrics?.calories ?? report?.calories;
+        const bodyFat = report?.metrics?.bodyFat;
+        const muscleMass = report?.metrics?.muscleMass;
+        const measurements = report?.metrics?.measurements;
+
+        return (
+            <div className="modal-details">
+                <div className="detail-section">
+                    <h4>Información del Reporte</h4>
+                    <div className="detail-grid">
+                        <div className="detail-item">
+                            <label>Título:</label>
+                            <span>{report?.title || (report?.type ? `Reporte de ${report.type}` : 'Reporte de progreso')}</span>
+                        </div>
+                        <div className="detail-item">
+                            <label>Paciente:</label>
+                            <span>{getPatientName(report?.patientId)}</span>
+                        </div>
+                        <div className="detail-item">
+                            <label>Tipo:</label>
+                            <span>{getTypeLabel(report?.type)}</span>
+                        </div>
+                        <div className="detail-item">
+                            <label>Fecha:</label>
+                            <span>{report?.date}</span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {report.metrics && (
-                <div className="detail-section">
-                    <h4>Métricas</h4>
-                    <div className="metrics-grid">
-                        {report.metrics.weight && (
-                            <div className="metric-item">
-                                <label>Peso:</label>
-                                <span>{report.metrics.weight} kg</span>
-                            </div>
-                        )}
-                        {report.metrics.height && (
-                            <div className="metric-item">
-                                <label>Altura:</label>
-                                <span>{report.metrics.height} cm</span>
-                            </div>
-                        )}
-                        {report.metrics.bmi && (
-                            <div className="metric-item">
-                                <label>IMC:</label>
-                                <span>{report.metrics.bmi}</span>
-                            </div>
-                        )}
-                        {report.metrics.bodyFat && (
-                            <div className="metric-item">
-                                <label>% Grasa:</label>
-                                <span>{report.metrics.bodyFat}%</span>
-                            </div>
-                        )}
-                        {report.metrics.muscleMass && (
-                            <div className="metric-item">
-                                <label>Masa Muscular:</label>
-                                <span>{report.metrics.muscleMass} kg</span>
-                            </div>
-                        )}
-                    </div>
-                    
-                    {report.metrics.measurements && (
-                        <div className="measurements-grid">
-                            <h5>Mediciones Corporales</h5>
-                            {report.metrics.measurements.waist && (
+                {(weight || height || bmi || calories || bodyFat || muscleMass) && (
+                    <div className="detail-section">
+                        <h4>Métricas</h4>
+                        <div className="metrics-grid">
+                            {weight && (
                                 <div className="metric-item">
-                                    <label>Cintura:</label>
-                                    <span>{report.metrics.measurements.waist} cm</span>
+                                    <label>Peso:</label>
+                                    <span>{weight} kg</span>
                                 </div>
                             )}
-                            {report.metrics.measurements.chest && (
+                            {height && (
                                 <div className="metric-item">
-                                    <label>Pecho:</label>
-                                    <span>{report.metrics.measurements.chest} cm</span>
+                                    <label>Altura:</label>
+                                    <span>{height} cm</span>
                                 </div>
                             )}
-                            {report.metrics.measurements.arms && (
+                            {bmi && (
                                 <div className="metric-item">
-                                    <label>Brazos:</label>
-                                    <span>{report.metrics.measurements.arms} cm</span>
+                                    <label>IMC:</label>
+                                    <span>{bmi}</span>
                                 </div>
                             )}
-                            {report.metrics.measurements.legs && (
+                            {calories && (
                                 <div className="metric-item">
-                                    <label>Piernas:</label>
-                                    <span>{report.metrics.measurements.legs} cm</span>
+                                    <label>Calorías:</label>
+                                    <span>{calories} kcal</span>
+                                </div>
+                            )}
+                            {bodyFat && (
+                                <div className="metric-item">
+                                    <label>% Grasa:</label>
+                                    <span>{bodyFat}%</span>
+                                </div>
+                            )}
+                            {muscleMass && (
+                                <div className="metric-item">
+                                    <label>Masa Muscular:</label>
+                                    <span>{muscleMass} kg</span>
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
-            )}
 
-            <div className="detail-section">
-                <h4>Contenido del Reporte</h4>
-                <div className="report-content">
-                    <p>{report.content}</p>
+                        {measurements && (measurements.waist || measurements.chest || measurements.arms || measurements.legs) && (
+                            <div className="measurements-grid">
+                                <h5>Mediciones Corporales</h5>
+                                {measurements.waist && (
+                                    <div className="metric-item">
+                                        <label>Cintura:</label>
+                                        <span>{measurements.waist} cm</span>
+                                    </div>
+                                )}
+                                {measurements.chest && (
+                                    <div className="metric-item">
+                                        <label>Pecho:</label>
+                                        <span>{measurements.chest} cm</span>
+                                    </div>
+                                )}
+                                {measurements.arms && (
+                                    <div className="metric-item">
+                                        <label>Brazos:</label>
+                                        <span>{measurements.arms} cm</span>
+                                    </div>
+                                )}
+                                {measurements.legs && (
+                                    <div className="metric-item">
+                                        <label>Piernas:</label>
+                                        <span>{measurements.legs} cm</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <div className="detail-section">
+                    <h4>Contenido del Reporte</h4>
+                    <div className="report-content">
+                        <p>{report?.content || report?.notes || report?.observations || 'Sin observaciones registradas.'}</p>
+                    </div>
                 </div>
+
+                {report?.recommendations && report.recommendations.length > 0 && (
+                    <div className="detail-section">
+                        <h4>Recomendaciones</h4>
+                        <ul>
+                            {report.recommendations.map((rec, index) => (
+                                <li key={index}>{rec}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {report?.nextSteps && (
+                    <div className="detail-section">
+                        <h4>Pasos Siguientes</h4>
+                        <p>{report.nextSteps}</p>
+                    </div>
+                )}
+
+                {report?.conclusion && (
+                    <div className="detail-section">
+                        <h4>Conclusión</h4>
+                        <p>{report.conclusion}</p>
+                    </div>
+                )}
             </div>
-
-            {report.recommendations && report.recommendations.length > 0 && (
-                <div className="detail-section">
-                    <h4>Recomendaciones</h4>
-                    <ul>
-                        {report.recommendations.map((rec, index) => (
-                            <li key={index}>{rec}</li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-
-            {report.nextSteps && (
-                <div className="detail-section">
-                    <h4>Pasos Siguientes</h4>
-                    <p>{report.nextSteps}</p>
-                </div>
-            )}
-
-            {report.conclusion && (
-                <div className="detail-section">
-                    <h4>Conclusión</h4>
-                    <p>{report.conclusion}</p>
-                </div>
-            )}
-        </div>
-    );
+        );
+    };
 
     const renderEditMode = () => (
-        <form className="modal-form" onSubmit={handleSubmit}>
+        <form className="modal-form" id="report-modal-form" onSubmit={handleSubmit}>
             <div className="modal-form-grid">
                 <div className="field">
                     <label htmlFor="patientId">Paciente *</label>
@@ -427,7 +537,7 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
                 <h5>Métricas del Paciente</h5>
                 <div className="metrics-form-grid">
                     <div className="field">
-                        <label htmlFor="metrics.weight">Peso (kg)</label>
+                        <label htmlFor="metrics.weight">Peso (kg) *</label>
                         <input
                             id="metrics.weight"
                             name="metrics.weight"
@@ -437,6 +547,7 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
                             onChange={handleChange}
                             onBlur={calculateBMI}
                             placeholder="70.5"
+                            required
                         />
                     </div>
                     <div className="field">
@@ -462,6 +573,18 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
                             onChange={handleChange}
                             placeholder="24.4"
                             readOnly
+                        />
+                    </div>
+                    <div className="field">
+                        <label htmlFor="calories">Calorías Objetivo (kcal)</label>
+                        <input
+                            id="calories"
+                            name="calories"
+                            type="number"
+                            step="50"
+                            value={form.calories}
+                            onChange={handleChange}
+                            placeholder="2000"
                         />
                     </div>
                     <div className="field">
@@ -592,19 +715,26 @@ const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSa
 
     const modalActions = isEditing ? (
         <div className="modal-actions">
-            <button type="button" className="btn ghost" onClick={handleCancel}>
+            <button type="button" className="btn ghost" onClick={handleCancel} disabled={isSubmitting}>
                 <i className="bi bi-x" />
                 {mode === 'add' ? 'Cancelar' : 'Cancelar Edición'}
             </button>
             {mode === 'edit' && (
-                <button type="button" className="btn danger" onClick={handleDelete}>
+                <button type="button" className="btn danger" onClick={handleDelete} disabled={isSubmitting}>
                     <i className="bi bi-trash" />
                     Eliminar
                 </button>
             )}
-            <button type="submit" className="btn" onClick={handleSubmit}>
-                <i className="bi bi-check" />
-                {mode === 'add' ? 'Crear Reporte' : 'Guardar Cambios'}
+            <button
+                type="submit"
+                form="report-modal-form"
+                className="btn"
+                disabled={isSubmitting}
+            >
+                <i className={`bi ${isSubmitting ? 'bi-hourglass-split' : 'bi-check'}`} />
+                {isSubmitting
+                    ? 'Guardando...'
+                    : (mode === 'add' ? 'Crear Reporte' : 'Guardar Cambios')}
             </button>
         </div>
     ) : (
