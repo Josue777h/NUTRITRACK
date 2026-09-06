@@ -17,53 +17,90 @@ export const reportService = {
 
     async createReport(reportData) {
         if (!isSupabaseConfigured) return null;
+
+        const payload = {
+            patient_id: Number(reportData.patientId),
+            date: reportData.date,
+            weight: Number(reportData.weight),
+            bmi: Number(reportData.bmi),
+            calories: Number(reportData.calories)
+        };
+
+        const extendedPayload = {
+            ...payload,
+            type: reportData.type || "progreso",
+            notes: reportData.notes || reportData.content || reportData.title || "",
+            feeling: reportData.feeling || "",
+            observations: reportData.observations || "",
+            diagnosis: reportData.diagnosis || "",
+            recommendations: reportData.recommendations || [],
+            next_steps: reportData.nextSteps || "",
+            conclusion: reportData.conclusion || ""
+        };
+
+        // Try inserting with all fields first
         const { data, error } = await supabase
             .from("reports")
-            .insert({
-                patient_id: Number(reportData.patientId),
-                date: reportData.date,
-                weight: Number(reportData.weight),
-                bmi: Number(reportData.bmi),
-                calories: Number(reportData.calories),
-                type: reportData.type || "progreso",
-                notes: reportData.notes || "",
-                feeling: reportData.feeling || "",
-                observations: reportData.observations || "",
-                diagnosis: reportData.diagnosis || "",
-                recommendations: reportData.recommendations || [],
-                next_steps: reportData.nextSteps || "",
-                conclusion: reportData.conclusion || ""
-            })
+            .insert(extendedPayload)
             .select()
             .single();
-        if (error) throw error;
-        return data;
+
+        if (!error) return data;
+
+        // If error is due to missing columns in DB schema, fallback to basic schema
+        console.warn("Retrying report insert with basic schema:", error.message);
+        const { data: fallbackData, error: fallbackError } = await supabase
+            .from("reports")
+            .insert(payload)
+            .select()
+            .single();
+
+        if (fallbackError) throw fallbackError;
+        return fallbackData;
     },
 
     async updateReport(id, reportData) {
         if (!isSupabaseConfigured) return null;
+
+        const payload = {
+            patient_id: Number(reportData.patientId),
+            date: reportData.date,
+            weight: Number(reportData.weight),
+            bmi: Number(reportData.bmi),
+            calories: Number(reportData.calories)
+        };
+
+        const extendedPayload = {
+            ...payload,
+            type: reportData.type || "progreso",
+            notes: reportData.notes || reportData.content || reportData.title || "",
+            feeling: reportData.feeling || "",
+            observations: reportData.observations || "",
+            diagnosis: reportData.diagnosis || "",
+            recommendations: reportData.recommendations || [],
+            next_steps: reportData.nextSteps || "",
+            conclusion: reportData.conclusion || ""
+        };
+
         const { data, error } = await supabase
             .from("reports")
-            .update({
-                patient_id: Number(reportData.patientId),
-                date: reportData.date,
-                weight: Number(reportData.weight),
-                bmi: Number(reportData.bmi),
-                calories: Number(reportData.calories),
-                type: reportData.type || "progreso",
-                notes: reportData.notes || "",
-                feeling: reportData.feeling || "",
-                observations: reportData.observations || "",
-                diagnosis: reportData.diagnosis || "",
-                recommendations: reportData.recommendations || [],
-                next_steps: reportData.nextSteps || "",
-                conclusion: reportData.conclusion || ""
-            })
+            .update(extendedPayload)
             .eq("id", id)
             .select()
             .single();
-        if (error) throw error;
-        return data;
+
+        if (!error) return data;
+
+        console.warn("Retrying report update with basic schema:", error.message);
+        const { data: fallbackData, error: fallbackError } = await supabase
+            .from("reports")
+            .update(payload)
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (fallbackError) throw fallbackError;
+        return fallbackData;
     },
 
     async deleteReport(id) {

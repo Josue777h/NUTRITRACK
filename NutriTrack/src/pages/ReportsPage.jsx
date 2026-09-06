@@ -53,15 +53,27 @@ function ReportsPage() {
         setModalMode("view");
     };
 
-    const handleSave = (data) => {
+    const handleSave = async (data) => {
         const flat = {
             ...data,
             weight:   Number(data.weight   || data.metrics?.weight   || 70),
             bmi:      Number(data.bmi      || data.metrics?.bmi      || 24),
-            calories: Number(data.calories || data.metrics?.calories || 2000)
+            calories: Number(data.calories || data.metrics?.calories || 2000),
+            notes:    data.notes || data.content || data.title || ""
         };
-        if (modalMode === "add") { addReport(flat);             showSuccess("Reporte creado."); }
-        else                     { updateReport(data.id, flat); showSuccess("Reporte actualizado."); }
+        try {
+            if (modalMode === "add") {
+                await addReport(flat);
+                showSuccess("Reporte creado.");
+            } else {
+                await updateReport(data.id, flat);
+                showSuccess("Reporte actualizado.");
+            }
+        } catch (error) {
+            console.error("Error al procesar reporte:", error);
+        } finally {
+            closeModal();
+        }
     };
 
     const handleDelete = (id) => { removeReport(id); showWarning("Reporte eliminado."); closeModal(); };
@@ -317,6 +329,7 @@ function ReportsPage() {
             <ReportModal
                 report={selectedReport}
                 patients={patients}
+                defaultPatientId={selectedPatientId}
                 isOpen={isModalOpen}
                 onClose={closeModal}
                 onSave={handleSave}

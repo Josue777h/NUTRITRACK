@@ -123,7 +123,7 @@ function RegisterPage() {
                 <div className="login-info">
                     <div className="login-brand">
                         <span className="login-logo-icon">
-                            <i className="bi bi-heart-pulse-fill" />
+                            <img src="/logonutri.png" alt="Logo NutriTrack" />
                         </span>
                         <span className="login-brand-name">NutriTrack</span>
                     </div>
@@ -150,9 +150,16 @@ function RegisterPage() {
 
                 {/* ── Right panel (form) ── */}
                 <div className="login-form-col">
-                    <form className="login-form" onSubmit={handleSubmit} noValidate
-                        style={{ padding: "2.5rem 2.5rem 1.5rem", gap: "0.9rem" }}>
+                    {/* Mini brand shown only on ≤520px when info panel is hidden */}
+                    <div className="login-mobile-brand">
+                        <span className="login-mobile-logo">
+                            <img src="/logonutri.png" alt="Logo NutriTrack" />
+                        </span>
+                        <span className="login-mobile-brand-title">NutriTrack</span>
+                        <span className="login-mobile-brand-subtitle">Crea tu cuenta profesional</span>
+                    </div>
 
+                    <form className="login-form" onSubmit={handleSubmit} noValidate>
                         <header className="login-form-header">
                             <h2>Crear cuenta profesional</h2>
                             <p>Registra tu consultorio y gestiona a tus pacientes con NutriTrack.</p>

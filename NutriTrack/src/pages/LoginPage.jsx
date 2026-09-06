@@ -112,9 +112,10 @@ function LoginPage({ onLogin }) {
                     {/* Mini brand shown only on ≤520px when info panel is hidden */}
                     <div className="login-mobile-brand">
                         <span className="login-mobile-logo">
-                            <i className="bi bi-heart-pulse-fill" />
+                            <img src="/logonutri.png" alt="Logo NutriTrack" />
                         </span>
-                        <span>NutriTrack</span>
+                        <span className="login-mobile-brand-title">NutriTrack</span>
+                        <span className="login-mobile-brand-subtitle">Tu consultorio nutricional inteligente</span>
                     </div>
 
                     <form className="login-form" onSubmit={handleSubmit} noValidate>

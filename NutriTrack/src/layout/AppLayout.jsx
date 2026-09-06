@@ -66,9 +66,9 @@ function AppLayout({ onLogout, children }) {
             <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
                 {/* Brand */}
                 <div className="brand">
-                    <div className="brand-logo">
-                        <i className="bi bi-heart-pulse-fill" />
-                    </div>
+                    <span className="login-logo-icon">
+                        <img src="/logonutri.png" alt="Logo" />
+                    </span>
                     <div>
                         <h1>NutriTrack</h1>
                         <p>{isNutri ? "Panel profesional" : "Mi salud"}</p>

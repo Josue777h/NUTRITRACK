@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useToast } from '../context/ToastContext';
 
-const ReportModal = ({ report, patients, isOpen, onClose, onSave, onDelete, mode = 'view' }) => {
+const ReportModal = ({ report, patients, defaultPatientId, isOpen, onClose, onSave, onDelete, mode = 'view' }) => {
     const { showSuccess, showError } = useToast();
     const [isEditing, setIsEditing] = useState(mode === 'edit');
     const [form, setForm] = useState({
@@ -40,14 +40,14 @@ const ReportModal = ({ report, patients, isOpen, onClose, onSave, onDelete, mode
         if (report && mode === 'edit') {
             setForm({
                 patientId: report.patientId?.toString() || '',
-                title: report.title || '',
+                title: report.title || report.type || 'Reporte de progreso',
                 type: report.type || 'progreso',
                 date: report.date || new Date().toISOString().split('T')[0],
-                content: report.content || '',
+                content: report.content || report.notes || report.observations || '',
                 metrics: {
-                    weight: report.metrics?.weight || '',
+                    weight: report.metrics?.weight ?? report.weight ?? '',
                     height: report.metrics?.height || '',
-                    bmi: report.metrics?.bmi || '',
+                    bmi: report.metrics?.bmi ?? report.bmi ?? '',
                     bodyFat: report.metrics?.bodyFat || '',
                     muscleMass: report.metrics?.muscleMass || '',
                     measurements: {
@@ -62,9 +62,10 @@ const ReportModal = ({ report, patients, isOpen, onClose, onSave, onDelete, mode
                 conclusion: report.conclusion || ''
             });
         } else if (mode === 'add') {
+            const initialPatientId = defaultPatientId ? String(defaultPatientId) : (patients?.[0]?.id ? String(patients[0].id) : '');
             setForm({
-                patientId: '',
-                title: '',
+                patientId: initialPatientId,
+                title: 'Reporte de progreso',
                 type: 'progreso',
                 date: new Date().toISOString().split('T')[0],
                 content: '',
@@ -87,7 +88,7 @@ const ReportModal = ({ report, patients, isOpen, onClose, onSave, onDelete, mode
             });
         }
         setIsEditing(mode === 'edit' || mode === 'add');
-    }, [report, mode]);
+    }, [report, mode, defaultPatientId, patients]);
 
     if (!isOpen) return null;
 
@@ -158,15 +159,19 @@ const ReportModal = ({ report, patients, isOpen, onClose, onSave, onDelete, mode
     const handleSubmit = (e) => {
         e.preventDefault();
         
-        if (!form.patientId || !form.title || !form.content) {
-            showError('Completa los campos obligatorios');
+        if (!form.patientId) {
+            showError('Por favor selecciona un paciente');
             return;
         }
 
         const reportData = {
             ...report,
             ...form,
-            patientId: parseInt(form.patientId)
+            patientId: parseInt(form.patientId, 10),
+            notes: form.content || form.notes || form.title || "",
+            weight: Number(form.metrics.weight) || (report?.weight ? Number(report.weight) : 70),
+            bmi: Number(form.metrics.bmi) || (report?.bmi ? Number(report.bmi) : 24),
+            calories: Number(form.calories) || (report?.calories ? Number(report.calories) : 2000)
         };
 
         if (mode === 'add') {
@@ -175,7 +180,6 @@ const ReportModal = ({ report, patients, isOpen, onClose, onSave, onDelete, mode
         }
 
         onSave(reportData);
-        showSuccess(mode === 'add' ? 'Reporte creado correctamente' : 'Reporte actualizado correctamente');
         onClose();
     };
 
@@ -528,7 +532,7 @@ const ReportModal = ({ report, patients, isOpen, onClose, onSave, onDelete, mode
             </div>
 
             <div className="field full">
-                <label htmlFor="content">Contenido del Reporte *</label>
+                <label htmlFor="content">Contenido o Notas del Reporte</label>
                 <textarea
                     id="content"
                     name="content"
@@ -536,7 +540,6 @@ const ReportModal = ({ report, patients, isOpen, onClose, onSave, onDelete, mode
                     onChange={handleChange}
                     placeholder="Describe el progreso del paciente, logros, áreas de mejora..."
                     rows="6"
-                    required
                 />
             </div>
 
