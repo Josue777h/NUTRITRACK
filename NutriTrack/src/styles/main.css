@@ -3865,8 +3865,8 @@ a {
   }
 }
 
-/* ─── Mobile base (≤768px) ─── */
-@media (max-width: 768px) {
+/* ─── Mobile base (≤920px) ─── */
+@media (max-width: 920px) {
 
   /* App shell & navigation */
   .main-panel {
@@ -4750,7 +4750,7 @@ a {
 }
 
 /* --- Responsive Adjustments MVP --- */
-@media (max-width: 768px) {
+@media (max-width: 920px) {
   .table-wrapper, .table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
