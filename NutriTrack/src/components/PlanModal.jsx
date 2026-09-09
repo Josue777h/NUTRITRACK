@@ -509,23 +509,23 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                                                             </div>
                                                             {isEditing && (
                                                                 <div style={{ display: 'flex', gap: '0.15rem', flexShrink: 0 }}>
-                                                                    <button type="button" title="Editar" onClick={() => setEditingFood({ category: cat.key, index: idx })}
+                                                                    <button type="button" title="Editar" aria-label="Editar" onClick={() => setEditingFood({ category: cat.key, index: idx })}
                                                                         style={{ border: 'none', background: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-pencil" />
                                                                     </button>
-                                                                    <button type="button" title="Subir" onClick={() => handleMoveFood(cat.key, idx, 'up')} disabled={idx === 0}
+                                                                    <button type="button" title="Subir" aria-label="Subir" onClick={() => handleMoveFood(cat.key, idx, 'up')} disabled={idx === 0}
                                                                         style={{ border: 'none', background: 'none', color: idx === 0 ? '#cbd5e1' : 'var(--muted)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-arrow-up-short" />
                                                                     </button>
-                                                                    <button type="button" title="Bajar" onClick={() => handleMoveFood(cat.key, idx, 'down')} disabled={idx === foods.length - 1}
+                                                                    <button type="button" title="Bajar" aria-label="Bajar" onClick={() => handleMoveFood(cat.key, idx, 'down')} disabled={idx === foods.length - 1}
                                                                         style={{ border: 'none', background: 'none', color: idx === foods.length - 1 ? '#cbd5e1' : 'var(--muted)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-arrow-down-short" />
                                                                     </button>
-                                                                    <button type="button" title="Duplicar" onClick={() => handleDuplicateFood(cat.key, idx)}
+                                                                    <button type="button" title="Duplicar" aria-label="Duplicar" onClick={() => handleDuplicateFood(cat.key, idx)}
                                                                         style={{ border: 'none', background: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-files" />
                                                                     </button>
-                                                                    <button type="button" title="Eliminar" onClick={() => handleRemoveFood(cat.key, idx)}
+                                                                    <button type="button" title="Eliminar" aria-label="Eliminar" onClick={() => handleRemoveFood(cat.key, idx)}
                                                                         style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-trash" />
                                                                     </button>
