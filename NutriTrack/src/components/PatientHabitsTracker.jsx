@@ -97,6 +97,7 @@ function PatientHabitsTracker({ activePlan }) {
                         <button
                             type="button"
                             className="btn secondary small"
+                            aria-label="Restar vaso de agua"
                             onClick={() => handleWaterChange(-1)}
                             disabled={water <= 0}
                             style={{ width: "32px", height: "32px", padding: 0, justifyContent: "center", fontSize: "1rem", fontWeight: "700" }}
@@ -106,6 +107,7 @@ function PatientHabitsTracker({ activePlan }) {
                         <button
                             type="button"
                             className="btn success small"
+                            aria-label="Sumar vaso de agua"
                             onClick={() => handleWaterChange(1)}
                             disabled={water >= 16}
                             style={{ width: "32px", height: "32px", padding: 0, justifyContent: "center", background: "#0ea5e9", border: "none", fontSize: "1rem", fontWeight: "700", color: "#fff" }}
@@ -125,6 +127,7 @@ function PatientHabitsTracker({ activePlan }) {
                                 type="button"
                                 onClick={() => handleWaterChange(idx < water ? -1 : 1)}
                                 title={`Vaso ${idx + 1} (250 ml)`}
+                                aria-label={`Vaso ${idx + 1} (250 ml)`}
                                 style={{
                                     height: "38px",
                                     border: isFilled ? "none" : "1px dashed var(--line-strong)",
@@ -250,6 +253,7 @@ function PatientHabitsTracker({ activePlan }) {
                             <button
                                 key={m.key}
                                 type="button"
+                                aria-label={`Seleccionar estado de ánimo: ${m.label}`}
                                 onClick={() => handleMoodSelect(m.key)}
                                 style={{
                                     padding: "0.6rem 0.3rem",

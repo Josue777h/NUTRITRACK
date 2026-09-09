@@ -437,11 +437,13 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                                                             <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '0.35rem' }}>
                                                                 <input
                                                                     type="time"
+                                                                    aria-label="Hora"
                                                                     value={food.time || defaultTimes[cat.key]}
                                                                     onChange={(e) => handleUpdateFoodField(cat.key, idx, 'time', e.target.value)}
                                                                 />
                                                                 <input
                                                                     type="text"
+                                                                    aria-label="Nombre del alimento"
                                                                     value={food.name || ''}
                                                                     onChange={(e) => handleUpdateFoodField(cat.key, idx, 'name', e.target.value)}
                                                                     placeholder="Alimento"
@@ -450,18 +452,21 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: '0.35rem' }}>
                                                                 <input
                                                                     type="text"
+                                                                    aria-label="Cantidad"
                                                                     value={food.qty || ''}
                                                                     onChange={(e) => handleUpdateFoodField(cat.key, idx, 'qty', e.target.value)}
                                                                     placeholder="Cantidad"
                                                                 />
                                                                 <input
                                                                     type="text"
+                                                                    aria-label="Unidad"
                                                                     value={food.unit || ''}
                                                                     onChange={(e) => handleUpdateFoodField(cat.key, idx, 'unit', e.target.value)}
                                                                     placeholder="Unidad"
                                                                 />
                                                                 <input
                                                                     type="number"
+                                                                    aria-label="Calorías"
                                                                     value={food.calories ?? ''}
                                                                     onChange={(e) => handleUpdateFoodField(cat.key, idx, 'calories', e.target.value)}
                                                                     placeholder="kcal"
@@ -469,6 +474,7 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                                                             </div>
                                                             <input
                                                                 type="text"
+                                                                aria-label="Notas"
                                                                 value={food.notes || ''}
                                                                 onChange={(e) => handleUpdateFoodField(cat.key, idx, 'notes', e.target.value)}
                                                                 placeholder="Notas (opcional)"
@@ -509,23 +515,23 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                                                             </div>
                                                             {isEditing && (
                                                                 <div style={{ display: 'flex', gap: '0.15rem', flexShrink: 0 }}>
-                                                                    <button type="button" title="Editar" onClick={() => setEditingFood({ category: cat.key, index: idx })}
+                                                                    <button type="button" title="Editar" aria-label="Editar" onClick={() => setEditingFood({ category: cat.key, index: idx })}
                                                                         style={{ border: 'none', background: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-pencil" />
                                                                     </button>
-                                                                    <button type="button" title="Subir" onClick={() => handleMoveFood(cat.key, idx, 'up')} disabled={idx === 0}
+                                                                    <button type="button" title="Subir" aria-label="Subir" onClick={() => handleMoveFood(cat.key, idx, 'up')} disabled={idx === 0}
                                                                         style={{ border: 'none', background: 'none', color: idx === 0 ? '#cbd5e1' : 'var(--muted)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-arrow-up-short" />
                                                                     </button>
-                                                                    <button type="button" title="Bajar" onClick={() => handleMoveFood(cat.key, idx, 'down')} disabled={idx === foods.length - 1}
+                                                                    <button type="button" title="Bajar" aria-label="Bajar" onClick={() => handleMoveFood(cat.key, idx, 'down')} disabled={idx === foods.length - 1}
                                                                         style={{ border: 'none', background: 'none', color: idx === foods.length - 1 ? '#cbd5e1' : 'var(--muted)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-arrow-down-short" />
                                                                     </button>
-                                                                    <button type="button" title="Duplicar" onClick={() => handleDuplicateFood(cat.key, idx)}
+                                                                    <button type="button" title="Duplicar" aria-label="Duplicar" onClick={() => handleDuplicateFood(cat.key, idx)}
                                                                         style={{ border: 'none', background: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-files" />
                                                                     </button>
-                                                                    <button type="button" title="Eliminar" onClick={() => handleRemoveFood(cat.key, idx)}
+                                                                    <button type="button" title="Eliminar" aria-label="Eliminar" onClick={() => handleRemoveFood(cat.key, idx)}
                                                                         style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.15rem' }}>
                                                                         <i className="bi bi-trash" />
                                                                     </button>
@@ -547,11 +553,13 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                                             <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '0.35rem' }}>
                                                 <input
                                                     type="time"
+                                                    aria-label="Hora"
                                                     value={foodForm.time}
                                                     onChange={(e) => handleFoodInputChange(cat.key, 'time', e.target.value)}
                                                 />
                                                 <input
                                                     type="text"
+                                                    aria-label="Nombre del alimento"
                                                     placeholder="Nombre del alimento..."
                                                     value={foodForm.name}
                                                     onChange={(e) => handleFoodInputChange(cat.key, 'name', e.target.value)}
@@ -566,18 +574,21 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 70px auto', gap: '0.35rem' }}>
                                                 <input
                                                     type="text"
+                                                    aria-label="Cantidad"
                                                     placeholder="Cant."
                                                     value={foodForm.qty}
                                                     onChange={(e) => handleFoodInputChange(cat.key, 'qty', e.target.value)}
                                                 />
                                                 <input
                                                     type="text"
+                                                    aria-label="Unidad"
                                                     placeholder="Unidad"
                                                     value={foodForm.unit}
                                                     onChange={(e) => handleFoodInputChange(cat.key, 'unit', e.target.value)}
                                                 />
                                                 <input
                                                     type="number"
+                                                    aria-label="Calorías"
                                                     placeholder="kcal"
                                                     value={foodForm.calories}
                                                     onChange={(e) => handleFoodInputChange(cat.key, 'calories', e.target.value)}
@@ -593,6 +604,7 @@ const PlanModal = ({ plan, patients, isOpen, onClose, onSave, mode = 'view' }) =
                                             </div>
                                             <input
                                                 type="text"
+                                                aria-label="Notas"
                                                 placeholder="Notas u observaciones (opcional)"
                                                 value={foodForm.notes}
                                                 onChange={(e) => handleFoodInputChange(cat.key, 'notes', e.target.value)}
