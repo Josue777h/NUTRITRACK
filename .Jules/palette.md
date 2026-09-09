@@ -1,0 +1,1 @@
+## 2024-05-24 - Accessibility labels for form inputs\n**Learning:** Placeholders are not sufficient for screen readers; proper accessibility requires explicit labels.\n**Action:** Replaced placeholder reliance in form inputs with explicit `aria-label` attributes for grid-based UIs where visible `<label>` tags would break layout.
