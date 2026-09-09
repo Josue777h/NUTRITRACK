@@ -353,8 +353,11 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                     </span>
                     <button
                         onClick={() => {
-                            if (window.confirm(`¿Estás seguro de eliminar permanentemente a ${patient.name}?`)) {
+                            const confirmText = window.prompt(`¿Estás seguro de eliminar permanentemente a ${patient.name}? Esta acción no se puede deshacer.\n\nEscribe "ELIMINAR" para confirmar:`);
+                            if (confirmText === "ELIMINAR") {
                                 onDelete(patient.id);
+                            } else if (confirmText !== null) {
+                                alert("Confirmación fallida. No se eliminó el paciente.");
                             }
                         }}
                         className="btn danger small"
