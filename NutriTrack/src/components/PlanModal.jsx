@@ -1220,6 +1220,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                         </div>
                                     </div>
 
+<<<<<<< HEAD
                                     {/* Contenido Desplegado del Acordeón */}
                                     {isOpenAccordion && (
                                         <div style={{ padding: '1rem 1.25rem', display: 'grid', gap: '0.85rem' }}>
@@ -1249,6 +1250,81 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                                                     {food.brand && (
                                                                         <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontStyle: 'italic' }}>
                                                                             ({food.brand})
+=======
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                                        {foods.length > 0 ? foods.map((food, idx) => {
+                                            const isRowEditing = isEditing && editingFood?.category === cat.key && editingFood?.index === idx;
+                                            return (
+                                                <div key={idx} className={`meal-food-row${isRowEditing ? ' editing' : ''}`}>
+                                                    {isRowEditing ? (
+                                                        <>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '0.35rem' }}>
+                                                                <input
+                                                                    type="time"
+                                                                    aria-label="Hora"
+                                                                    value={food.time || defaultTimes[cat.key]}
+                                                                    onChange={(e) => handleUpdateFoodField(cat.key, idx, 'time', e.target.value)}
+                                                                />
+                                                                <input
+                                                                    type="text"
+                                                                    aria-label="Nombre del alimento"
+                                                                    value={food.name || ''}
+                                                                    onChange={(e) => handleUpdateFoodField(cat.key, idx, 'name', e.target.value)}
+                                                                    placeholder="Alimento"
+                                                                />
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: '0.35rem' }}>
+                                                                <input
+                                                                    type="text"
+                                                                    aria-label="Cantidad"
+                                                                    value={food.qty || ''}
+                                                                    onChange={(e) => handleUpdateFoodField(cat.key, idx, 'qty', e.target.value)}
+                                                                    placeholder="Cantidad"
+                                                                />
+                                                                <input
+                                                                    type="text"
+                                                                    aria-label="Unidad"
+                                                                    value={food.unit || ''}
+                                                                    onChange={(e) => handleUpdateFoodField(cat.key, idx, 'unit', e.target.value)}
+                                                                    placeholder="Unidad"
+                                                                />
+                                                                <input
+                                                                    type="number"
+                                                                    aria-label="Calorías"
+                                                                    value={food.calories ?? ''}
+                                                                    onChange={(e) => handleUpdateFoodField(cat.key, idx, 'calories', e.target.value)}
+                                                                    placeholder="kcal"
+                                                                />
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                aria-label="Notas"
+                                                                value={food.notes || ''}
+                                                                onChange={(e) => handleUpdateFoodField(cat.key, idx, 'notes', e.target.value)}
+                                                                placeholder="Notas (opcional)"
+                                                            />
+                                                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn success small"
+                                                                    style={{ background: 'var(--primary)', border: 'none' }}
+                                                                    onClick={() => setEditingFood(null)}
+                                                                >
+                                                                    Listo
+                                                                </button>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'flex-start' }}>
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                                    {food.time && (
+                                                                        <span style={{
+                                                                            background: 'var(--primary-soft)', color: 'var(--primary-strong)',
+                                                                            fontSize: '0.7rem', padding: '0.05rem 0.3rem', borderRadius: '4px', fontWeight: 700
+                                                                        }}>
+                                                                            {food.time}
+>>>>>>> 147b06ab9c19c6da98d091ed2ebe1c028c3339c2
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -1259,6 +1335,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                                                     </div>
                                                                 )}
                                                             </div>
+<<<<<<< HEAD
 
                                                             {/* Cantidad y Calorías */}
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1334,6 +1411,104 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                                     />
                                                 </div>
                                             )}
+=======
+                                                            {isEditing && (
+                                                                <div style={{ display: 'flex', gap: '0.15rem', flexShrink: 0 }}>
+                                                                    <button type="button" title="Editar" aria-label="Editar" onClick={() => setEditingFood({ category: cat.key, index: idx })}
+                                                                        style={{ border: 'none', background: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.15rem' }}>
+                                                                        <i className="bi bi-pencil" />
+                                                                    </button>
+                                                                    <button type="button" title="Subir" aria-label="Subir" onClick={() => handleMoveFood(cat.key, idx, 'up')} disabled={idx === 0}
+                                                                        style={{ border: 'none', background: 'none', color: idx === 0 ? '#cbd5e1' : 'var(--muted)', cursor: 'pointer', padding: '0.15rem' }}>
+                                                                        <i className="bi bi-arrow-up-short" />
+                                                                    </button>
+                                                                    <button type="button" title="Bajar" aria-label="Bajar" onClick={() => handleMoveFood(cat.key, idx, 'down')} disabled={idx === foods.length - 1}
+                                                                        style={{ border: 'none', background: 'none', color: idx === foods.length - 1 ? '#cbd5e1' : 'var(--muted)', cursor: 'pointer', padding: '0.15rem' }}>
+                                                                        <i className="bi bi-arrow-down-short" />
+                                                                    </button>
+                                                                    <button type="button" title="Duplicar" aria-label="Duplicar" onClick={() => handleDuplicateFood(cat.key, idx)}
+                                                                        style={{ border: 'none', background: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.15rem' }}>
+                                                                        <i className="bi bi-files" />
+                                                                    </button>
+                                                                    <button type="button" title="Eliminar" aria-label="Eliminar" onClick={() => handleRemoveFood(cat.key, idx)}
+                                                                        style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.15rem' }}>
+                                                                        <i className="bi bi-trash" />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        }) : (
+                                            <p style={{ color: 'var(--muted)', fontSize: '0.75rem', fontStyle: 'italic', textAlign: 'center', margin: '0.5rem 0' }}>
+                                                Sin alimentos todavía.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {isEditing && (
+                                        <div className="meal-add-form">
+                                            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '0.35rem' }}>
+                                                <input
+                                                    type="time"
+                                                    aria-label="Hora"
+                                                    value={foodForm.time}
+                                                    onChange={(e) => handleFoodInputChange(cat.key, 'time', e.target.value)}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    aria-label="Nombre del alimento"
+                                                    placeholder="Nombre del alimento..."
+                                                    value={foodForm.name}
+                                                    onChange={(e) => handleFoodInputChange(cat.key, 'name', e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            handleAddFood(cat.key);
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 70px auto', gap: '0.35rem' }}>
+                                                <input
+                                                    type="text"
+                                                    aria-label="Cantidad"
+                                                    placeholder="Cant."
+                                                    value={foodForm.qty}
+                                                    onChange={(e) => handleFoodInputChange(cat.key, 'qty', e.target.value)}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    aria-label="Unidad"
+                                                    placeholder="Unidad"
+                                                    value={foodForm.unit}
+                                                    onChange={(e) => handleFoodInputChange(cat.key, 'unit', e.target.value)}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    aria-label="Calorías"
+                                                    placeholder="kcal"
+                                                    value={foodForm.calories}
+                                                    onChange={(e) => handleFoodInputChange(cat.key, 'calories', e.target.value)}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="btn success"
+                                                    onClick={() => handleAddFood(cat.key)}
+                                                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', background: 'var(--primary)', border: 'none', whiteSpace: 'nowrap' }}
+                                                >
+                                                    Agregar
+                                                </button>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                aria-label="Notas"
+                                                placeholder="Notas u observaciones (opcional)"
+                                                value={foodForm.notes}
+                                                onChange={(e) => handleFoodInputChange(cat.key, 'notes', e.target.value)}
+                                            />
+>>>>>>> 147b06ab9c19c6da98d091ed2ebe1c028c3339c2
                                         </div>
                                     )}
                                 </div>

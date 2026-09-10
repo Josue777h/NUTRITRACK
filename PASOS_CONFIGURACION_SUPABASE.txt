@@ -1,0 +1,69 @@
+﻿================================================================================
+GUÍA DE CONFIGURACIÓN EXTERNA: INVITACIÓN DE PACIENTES POR CORREO EN SUPABASE
+================================================================================
+
+Este documento contiene los pasos exactos para configurar en tu proyecto de Supabase
+el envío automático de correos para que tus pacientes reciban el enlace directo,
+creen su cuenta y queden enlazados con el nutriólogo.
+
+--------------------------------------------------------------------------------
+PASO 1: APLICAR EL ESQUEMA SQL UNIFICADO
+--------------------------------------------------------------------------------
+1. Entra a tu panel de Supabase: https://app.supabase.com
+2. Selecciona tu proyecto de NutriTrack.
+3. En el menú lateral izquierdo, haz clic en "SQL Editor" (ícono con consola SQL).
+4. Abre el archivo de tu proyecto: NutriTrack/sql/schema.sql
+5. Copia todo su contenido, pégalo en el editor SQL de Supabase y haz clic en "Run".
+   (Quedarán creadas las tablas, columnas de Cédula/DNI, código clínico y triggers).
+
+--------------------------------------------------------------------------------
+PASO 2: CONFIGURAR LA URL DEL SITIO EN SUPABASE AUTH
+--------------------------------------------------------------------------------
+Para que cualquier enlace enviado por correo redirija a tu frontend:
+
+1. En el panel de Supabase, ve a "Authentication" -> "URL Configuration".
+2. En "Site URL", coloca la URL de tu aplicación (por ejemplo: https://tuapp.netlify.app o http://localhost:5173).
+3. En "Redirect URLs", añade:
+   - http://localhost:5173/**
+   - https://tuapp.netlify.app/**
+4. Guarda los cambios ("Save").
+
+--------------------------------------------------------------------------------
+PASO 3: PERSONALIZAR LA PLANTILLA DE CORREO DE INVITACIÓN
+--------------------------------------------------------------------------------
+1. En el panel de Supabase, ve a "Authentication" -> "Email Templates".
+2. Selecciona la pestaña "Invite user".
+3. Configura el Asunto (Subject):
+   Bienvenido a NutriTrack - Crea tu cuenta de paciente
+
+4. Configura el cuerpo del mensaje (Body):
+   <h2>¡Hola!</h2>
+   <p>Tu nutriólogo te ha registrado en <strong>NutriTrack</strong>.</p>
+   <p>Para crear tu contraseña y acceder a tus planes alimenticios y seguimiento, haz clic en el siguiente enlace:</p>
+   <p><a href="{{ .SiteURL }}/register?role=paciente&email={{ .Email }}">Aceptar invitación y crear cuenta</a></p>
+   <p>Si no esperabas este correo, puedes ignorarlo.</p>
+
+5. Guarda los cambios.
+
+--------------------------------------------------------------------------------
+PASO 4: CÓMO FUNCIONA EL ENVÍO DESDE LA APLICACIÓN
+--------------------------------------------------------------------------------
+Actualmente la aplicación cuenta con dos métodos de entrega garantizada:
+
+OPCIÓN A (Instantánea sin costo de servidores de correo):
+1. En la pantalla de Pacientes, selecciona la ficha del paciente.
+2. En la pestaña "Resumen", verás la tarjeta:
+   "Enlace de Creación de Cuenta para Paciente".
+3. Tienes dos botones listos:
+   - "Enviar Correo": Abre tu cliente de correo (Gmail, Outlook, etc.) con el
+     asunto y cuerpo listos para enviar al paciente con su enlace único.
+   - "Copiar Enlace": Para enviárselo directamente por WhatsApp o chat.
+
+OPCIÓN B (Automático desde Supabase):
+Cuando el paciente hace clic en el enlace emitido por el nutriólogo:
+1. Se abre la pantalla de registro con su correo, cédula y código prellenados.
+2. El paciente solo define su contraseña.
+3. El trigger de la base de datos (handle_new_user) enlaza automáticamente al
+   paciente con el nutriólogo que emitió la invitación.
+
+================================================================================
