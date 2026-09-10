@@ -29,25 +29,26 @@ function PatientsPage() {
             setSelectedPatientId(saved.id);
         }
 
+        const targetEmail = (patientData.email || "").trim().toLowerCase();
         // Si el paciente tiene correo y está marcada la opción de enviar automático
-        if (patientData.email && patientData.sendEmailInvite !== false) {
+        if (targetEmail && patientData.sendEmailInvite !== false) {
             if (emailService.isConfigured()) {
                 try {
                     const inviteUrl = emailService.generateInviteUrl({
-                        email: patientData.email,
+                        email: targetEmail,
                         name: patientData.name,
                         clinicalCode: patientData.clinicalCode || patientData.clinical_code || (saved?.id ? `PAC-${saved.id}` : ""),
                         documentId: patientData.documentId || patientData.document_id || "",
-                        nutriologoId: auth?.id
+                        nutriologoId: auth?.uid || auth?.id
                     });
 
                     const emailRes = await emailService.sendPatientInvite({
                         patientName: patientData.name,
-                        patientEmail: patientData.email,
+                        patientEmail: targetEmail,
                         inviteUrl,
                         nutriologoName: auth?.fullName || "Tu Nutriólogo",
                         clinicalCode: patientData.clinicalCode || patientData.clinical_code || (saved?.id ? `PAC-${saved.id}` : "PACIENTE"),
-                        nutriologoId: auth?.id
+                        nutriologoId: auth?.uid || auth?.id
                     });
 
                     if (emailRes.success) {

@@ -75,14 +75,18 @@ export const emailService = {
 
         const templateParams = {
             to_name: patientName || "Paciente",
+            name: patientName || "Paciente",
             to_email: patientEmail,
+            email: patientEmail,
+            Email: patientEmail,
+            user_email: patientEmail,
+            recipient: patientEmail,
             invite_link: effectiveInviteUrl,
             nutriologo_name: nutriologoName || "Tu Nutriólogo",
             clinical_code: clinicalCode || "PACIENTE",
             app_name: "NutriTrack",
             login_url: `${getAppBaseUrl()}/login`,
-            SiteURL: getAppBaseUrl(),
-            Email: patientEmail
+            SiteURL: getAppBaseUrl()
         };
 
         const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
