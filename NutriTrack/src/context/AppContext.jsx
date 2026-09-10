@@ -127,7 +127,18 @@ function AppProvider({ children }) {
 
         setState((prev) => ({
             ...prev,
+            profiles: {
+                ...prev.profiles,
+                [role]: {
+                    ...prev.profiles?.[role],
+                    fullName,
+                    email: session.user.email,
+                    phone: profile?.phone || "",
+                    documentId: profile?.document_id || ""
+                }
+            },
             auth: {
+                ...prev.auth,
                 isAuthenticated: true,
                 role,
                 username: session.user.email,
@@ -953,9 +964,10 @@ function AppProvider({ children }) {
         }
     };
 
-    const updateProfile = (profileForm) => {
+    const updateProfile = async (profileForm) => {
         const role = state.auth.role;
         if (!role) return;
+
         setState((prev) => ({
             ...prev,
             profiles: {
@@ -964,8 +976,24 @@ function AppProvider({ children }) {
                     ...prev.profiles[role],
                     ...profileForm
                 }
+            },
+            auth: {
+                ...prev.auth,
+                fullName: profileForm.fullName || prev.auth.fullName
             }
         }));
+
+        if (isSupabaseConfigured && state.auth.uid) {
+            try {
+                await userService.updateProfile(state.auth.uid, {
+                    fullName: profileForm.fullName,
+                    phone: profileForm.phone,
+                    documentId: profileForm.documentId || profileForm.document_id
+                });
+            } catch (err) {
+                console.error("Error al actualizar perfil en Supabase:", err);
+            }
+        }
     };
 
     const toggleTheme = () => {

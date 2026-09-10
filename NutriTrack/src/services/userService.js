@@ -14,15 +14,15 @@ export const userService = {
     
     async updateProfile(userId, profileForm) {
         if (!isSupabaseConfigured) return null;
+        const updatePayload = {};
+        if (profileForm.fullName !== undefined) updatePayload.full_name = profileForm.fullName;
+        if (profileForm.phone !== undefined) updatePayload.phone = profileForm.phone;
+        if (profileForm.documentId !== undefined) updatePayload.document_id = profileForm.documentId;
+        if (profileForm.document_id !== undefined) updatePayload.document_id = profileForm.document_id;
+
         const { data, error } = await supabase
             .from("profiles")
-            .update({
-                full_name: profileForm.fullName,
-                phone: profileForm.phone,
-                specialty: profileForm.specialty,
-                schedule: profileForm.schedule,
-                registration: profileForm.registration
-            })
+            .update(updatePayload)
             .eq("id", userId);
         if (error) throw error;
         return data;

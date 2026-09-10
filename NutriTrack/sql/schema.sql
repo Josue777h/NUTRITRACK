@@ -1,4 +1,4 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- NUTRITRACK - ESQUEMA DE BASE DE DATOS UNIFICADO (SUPABASE / POSTGRESQL)
 -- ==============================================================================
 -- Este archivo es el ÚNICO archivo SQL necesario para inicializar o actualizar
@@ -13,12 +13,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     full_name text,
     email text UNIQUE,
     phone text,
-    specialty text,
-    schedule text,
-    registration text,
+    document_id text,
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
 );
+
+-- Asegurar columnas limpias si la tabla ya existía
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS document_id text;
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS specialty;
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS schedule;
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS registration;
 
 -- 2. TABLA DE PACIENTES (Historias Clínicas)
 CREATE TABLE IF NOT EXISTS public.patients (
@@ -95,17 +99,8 @@ CREATE TABLE IF NOT EXISTS public.nutrition_plans (
 
 ALTER TABLE public.nutrition_plans ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
--- 5. TABLA DE CONSULTAS
-CREATE TABLE IF NOT EXISTS public.consultas (
-    id serial PRIMARY KEY,
-    appointment_id integer REFERENCES public.appointments (id) ON DELETE CASCADE,
-    patient_id integer REFERENCES public.patients (id) ON DELETE CASCADE,
-    notes text,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
-);
-
-ALTER TABLE public.consultas ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+-- 5. ELIMINAR TABLA OBSOLETA DE CONSULTAS (Las consultas reales se gestionan en 'reports')
+DROP TABLE IF EXISTS public.consultas CASCADE;
 
 -- 6. TABLA DE REPORTES Y PROGRESO CLÍNICO
 CREATE TABLE IF NOT EXISTS public.reports (
@@ -204,7 +199,6 @@ CREATE INDEX IF NOT EXISTS patients_clinical_code_idx ON public.patients (clinic
 CREATE INDEX IF NOT EXISTS patients_document_id_idx ON public.patients (document_id);
 CREATE INDEX IF NOT EXISTS appointments_patient_date_idx ON public.appointments (patient_id, date);
 CREATE INDEX IF NOT EXISTS nutrition_plans_patient_created_idx ON public.nutrition_plans (patient_id, created_at desc);
-CREATE INDEX IF NOT EXISTS consultas_patient_created_idx ON public.consultas (patient_id, created_at desc);
 CREATE INDEX IF NOT EXISTS reports_patient_date_idx ON public.reports (patient_id, date desc);
 CREATE INDEX IF NOT EXISTS daily_habits_patient_date_idx ON public.daily_habits (patient_id, date desc);
 CREATE INDEX IF NOT EXISTS diet_templates_nutriologo_id_idx ON public.diet_templates (nutriologo_id);
@@ -229,7 +223,6 @@ DROP TRIGGER IF EXISTS profiles_set_updated_at ON public.profiles;
 DROP TRIGGER IF EXISTS patients_set_updated_at ON public.patients;
 DROP TRIGGER IF EXISTS appointments_set_updated_at ON public.appointments;
 DROP TRIGGER IF EXISTS nutrition_plans_set_updated_at ON public.nutrition_plans;
-DROP TRIGGER IF EXISTS consultas_set_updated_at ON public.consultas;
 DROP TRIGGER IF EXISTS reports_set_updated_at ON public.reports;
 DROP TRIGGER IF EXISTS daily_habits_set_updated_at ON public.daily_habits;
 DROP TRIGGER IF EXISTS diet_templates_set_updated_at ON public.diet_templates;
@@ -239,7 +232,6 @@ CREATE TRIGGER profiles_set_updated_at BEFORE UPDATE ON public.profiles FOR EACH
 CREATE TRIGGER patients_set_updated_at BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER appointments_set_updated_at BEFORE UPDATE ON public.appointments FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER nutrition_plans_set_updated_at BEFORE UPDATE ON public.nutrition_plans FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-CREATE TRIGGER consultas_set_updated_at BEFORE UPDATE ON public.consultas FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER reports_set_updated_at BEFORE UPDATE ON public.reports FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER daily_habits_set_updated_at BEFORE UPDATE ON public.daily_habits FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER diet_templates_set_updated_at BEFORE UPDATE ON public.diet_templates FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -303,7 +295,7 @@ BEGIN
   END IF;
 
   -- Crear el perfil público
-  INSERT INTO public.profiles (id, role, full_name, email)
+  INSERT INTO public.profiles (id, role, full_name, email, document_id)
   VALUES (
     new.id,
     CASE
@@ -311,11 +303,13 @@ BEGIN
       ELSE 'usuario'
     END,
     NULLIF(new.raw_user_meta_data ->> 'full_name', ''),
-    new.email
+    new.email,
+    new.raw_user_meta_data ->> 'document_id'
   )
   ON CONFLICT (id) DO UPDATE
   SET full_name = EXCLUDED.full_name,
-      role = EXCLUDED.role;
+      role = EXCLUDED.role,
+      document_id = COALESCE(EXCLUDED.document_id, profiles.document_id);
 
   RETURN new;
 END;
@@ -421,15 +415,6 @@ CREATE POLICY plans_tenant_select ON public.nutrition_plans FOR SELECT TO authen
 CREATE POLICY plans_tenant_insert ON public.nutrition_plans FOR INSERT TO authenticated WITH CHECK (public.can_manage_patient(patient_id));
 CREATE POLICY plans_tenant_update ON public.nutrition_plans FOR UPDATE TO authenticated USING (public.can_manage_patient(patient_id)) WITH CHECK (public.can_manage_patient(patient_id));
 CREATE POLICY plans_tenant_delete ON public.nutrition_plans FOR DELETE TO authenticated USING (public.can_manage_patient(patient_id));
-
-DROP POLICY IF EXISTS consultas_tenant_select ON public.consultas;
-DROP POLICY IF EXISTS consultas_tenant_insert ON public.consultas;
-DROP POLICY IF EXISTS consultas_tenant_update ON public.consultas;
-DROP POLICY IF EXISTS consultas_tenant_delete ON public.consultas;
-CREATE POLICY consultas_tenant_select ON public.consultas FOR SELECT TO authenticated USING (public.can_access_patient(patient_id));
-CREATE POLICY consultas_tenant_insert ON public.consultas FOR INSERT TO authenticated WITH CHECK (public.can_manage_patient(patient_id));
-CREATE POLICY consultas_tenant_update ON public.consultas FOR UPDATE TO authenticated USING (public.can_manage_patient(patient_id)) WITH CHECK (public.can_manage_patient(patient_id));
-CREATE POLICY consultas_tenant_delete ON public.consultas FOR DELETE TO authenticated USING (public.can_manage_patient(patient_id));
 
 DROP POLICY IF EXISTS reports_tenant_select ON public.reports;
 DROP POLICY IF EXISTS reports_tenant_insert ON public.reports;
