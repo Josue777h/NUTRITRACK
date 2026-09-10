@@ -8,6 +8,8 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
 
     const initialForm = {
         name: '',
+        documentId: '',
+        clinicalCode: '',
         email: '',
         phone : '',
         age: '',
@@ -18,7 +20,8 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
         calories: '2000',
         notes: '',
         allergies: '',
-        conditions: ''
+        conditions: '',
+        sendEmailInvite: true
     };
 
     const [form, setForm] = useState(initialForm);
@@ -40,7 +43,7 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
     const handleNext = () => {
         if (step === 1) {
             if (!form.name.trim() || !form.age || !form.email.trim()) {
-                showError("nCompleta todos los campos obligatorios de información personal.");
+                showError("Completa todos los campos obligatorios de información personal.");
                 return;
             }
             setStep(2);
@@ -137,6 +140,36 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                             placeholder="Ej: María Rodríguez"
                             required
                         />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div className="field">
+                            <label htmlFor="documentId">
+                                <i className="bi bi-person-vcard" style={{ marginRight: '0.3rem' }} />
+                                Cédula / DNI / Identificación
+                            </label>
+                            <input
+                                id="documentId"
+                                name="documentId"
+                                type="text"
+                                value={form.documentId}
+                                onChange={handleChange}
+                                placeholder="Ej: 1098765432"
+                            />
+                        </div>
+                        <div className="field">
+                            <label htmlFor="clinicalCode">
+                                <i className="bi bi-upc-scan" style={{ marginRight: '0.3rem' }} />
+                                Código Clínico (Opcional)
+                            </label>
+                            <input
+                                id="clinicalCode"
+                                name="clinicalCode"
+                                type="text"
+                                value={form.clinicalCode}
+                                onChange={handleChange}
+                                placeholder="Auto: PAC-#####"
+                            />
+                        </div>
                     </div>
                     <div className="field">
                         <label htmlFor="email">Correo electrónico *</label>
@@ -311,6 +344,29 @@ const AddPatientModal = ({ isOpen, onClose, onSave }) => {
                             placeholder="Observaciones iniciales del profesional..."
                             rows="3"
                         />
+                    </div>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '0.85rem 1rem',
+                        background: 'rgba(56, 189, 248, 0.08)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        borderRadius: 'var(--radius)',
+                        marginTop: '0.25rem'
+                    }}>
+                        <input
+                            id="sendEmailInvite"
+                            name="sendEmailInvite"
+                            type="checkbox"
+                            checked={form.sendEmailInvite}
+                            onChange={(e) => setForm(prev => ({ ...prev, sendEmailInvite: e.target.checked }))}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary)' }}
+                        />
+                        <label htmlFor="sendEmailInvite" style={{ margin: 0, cursor: 'pointer', fontSize: '0.88rem', fontWeight: 500, color: 'var(--text)' }}>
+                            <i className="bi bi-envelope-check" style={{ marginRight: '0.4rem', color: 'var(--primary)' }} />
+                            Enviar correo automático de activación al paciente al guardar
+                        </label>
                     </div>
                     <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                         <button type="button" className="button secondary" onClick={handleBack}>

@@ -38,7 +38,7 @@ export const userService = {
         return data;
     },
 
-    async signUp(email, password, role, fullName) {
+    async signUp(email, password, role, fullName, extraData = {}) {
         if (!isSupabaseConfigured) return null;
         const { data, error } = await supabase.auth.signUp({
             email,
@@ -46,7 +46,8 @@ export const userService = {
             options: {
                 data: {
                     role,
-                    full_name: fullName
+                    full_name: fullName,
+                    ...extraData
                 }
             }
         });

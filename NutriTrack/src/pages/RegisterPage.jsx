@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 
@@ -9,6 +9,9 @@ const initialForm = {
     password: "",
     confirmPassword: "",
     role: "nutriologo",
+    documentId: "",
+    clinicalCode: "",
+    nutriologoId: ""
 };
 
 function getPasswordStrength(pw) {
@@ -33,6 +36,7 @@ function getPasswordStrength(pw) {
 
 function RegisterPage() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { registerUser, registerNutriologist } = useApp();
     const { showSuccess, showError } = useToast();
     const [form, setForm] = useState(initialForm);
@@ -40,6 +44,28 @@ function RegisterPage() {
     const [errors, setErrors] = useState({});
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    // Detectar si el usuario llegó mediante un enlace de invitación de su nutriólogo
+    const isPatientInvite = searchParams.get("role") === "paciente" || searchParams.get("invitation") === "paciente";
+    const invitedEmail = searchParams.get("email") || "";
+    const refNutriologo = searchParams.get("ref") || searchParams.get("nutriologo") || "";
+    const refCode = searchParams.get("code") || "";
+    const refDoc = searchParams.get("doc") || "";
+    const refName = searchParams.get("name") || "";
+
+    useEffect(() => {
+        if (isPatientInvite) {
+            setForm((prev) => ({
+                ...prev,
+                role: "usuario",
+                email: invitedEmail || prev.email,
+                fullName: refName || prev.fullName,
+                clinicalCode: refCode || prev.clinicalCode,
+                documentId: refDoc || prev.documentId,
+                nutriologoId: refNutriologo || prev.nutriologoId
+            }));
+        }
+    }, [isPatientInvite, invitedEmail, refNutriologo, refCode, refDoc, refName]);
 
     const pwStrength = getPasswordStrength(form.password);
 
@@ -87,10 +113,14 @@ function RegisterPage() {
                     fullName: form.fullName.trim(),
                     email: form.email.trim().toLowerCase(),
                     password: form.password,
+                }, {
+                    nutriologo_id: form.nutriologoId,
+                    clinical_code: form.clinicalCode,
+                    document_id: form.documentId
                 });
             }
             if (result.success) {
-                showSuccess("¡Registro exitoso! Ya puedes iniciar sesión.");
+                showSuccess("¡Cuenta creada exitosamente! Ya puedes iniciar sesión.");
                 navigate("/login");
             } else {
                 showError(result.message || "Error al registrarse.");
@@ -161,9 +191,35 @@ function RegisterPage() {
 
                     <form className="login-form" onSubmit={handleSubmit} noValidate>
                         <header className="login-form-header">
-                            <h2>Crear cuenta profesional</h2>
-                            <p>Registra tu consultorio y gestiona a tus pacientes con NutriTrack.</p>
+                            <h2>{isPatientInvite ? "Crear cuenta de Paciente" : "Crear cuenta profesional"}</h2>
+                            <p>
+                                {isPatientInvite 
+                                    ? "Completa tu registro para acceder a tu plan alimenticio y seguimiento con tu nutriólogo." 
+                                    : "Registra tu consultorio y gestiona a tus pacientes con NutriTrack."}
+                            </p>
                         </header>
+
+                        {isPatientInvite && (
+                            <div style={{
+                                background: "var(--primary-soft)",
+                                border: "1px solid var(--primary)",
+                                borderRadius: "var(--radius-sm)",
+                                padding: "0.75rem",
+                                marginBottom: "1rem",
+                                fontSize: "0.8rem",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.5rem"
+                            }}>
+                                <i className="bi bi-shield-check" style={{ color: "var(--primary-strong)", fontSize: "1.2rem" }} />
+                                <div>
+                                    <strong>Invitación verificada</strong>
+                                    <span style={{ display: "block", color: "var(--text-light)" }}>
+                                        Tu cuenta quedará enlazada automáticamente con tu especialista.
+                                    </span>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Name */}
                         <div className="field">
@@ -206,7 +262,7 @@ function RegisterPage() {
                                 onChange={handleChange}
                                 className={errors.email ? "error" : ""}
                                 required
-                                disabled={isLoading}
+                                disabled={isLoading || (isPatientInvite && !!invitedEmail)}
                                 autoComplete="email"
                             />
                             {errors.email && (

@@ -3,10 +3,11 @@ import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import AddPatientModal from "../components/AddPatientModal";
 import PatientClinicalPanel from "../components/PatientClinicalPanel";
+import { emailService } from "../services/emailService";
 
 function PatientsPage() {
-    const { patients, addPatient, updatePatient, removePatient, reports } = useApp();
-    const { showSuccess, showWarning } = useToast();
+    const { patients, addPatient, updatePatient, removePatient, reports, auth } = useApp();
+    const { showSuccess, showWarning, showError } = useToast();
     
     const [selectedPatientId, setSelectedPatientId] = useState(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -22,14 +23,47 @@ function PatientsPage() {
 
     const handleAddPatient = async (patientData) => {
         const saved = await addPatient(patientData);
-        if (patientData.email) {
-            showSuccess(`¡Paciente registrado con éxito!\n\nEl paciente puede crear su cuenta e ingresar usando el correo ${patientData.email.trim().toLowerCase()} desde la pantalla de registro público.`);
-        } else {
-            showSuccess("Paciente registrado con éxito.");
-        }
         setIsAddModalOpen(false);
+
         if (saved) {
             setSelectedPatientId(saved.id);
+        }
+
+        // Si el paciente tiene correo y está marcada la opción de enviar automático
+        if (patientData.email && patientData.sendEmailInvite !== false) {
+            if (emailService.isConfigured()) {
+                try {
+                    const inviteUrl = emailService.generateInviteUrl({
+                        email: patientData.email,
+                        name: patientData.name,
+                        clinicalCode: patientData.clinicalCode || patientData.clinical_code || (saved?.id ? `PAC-${saved.id}` : ""),
+                        documentId: patientData.documentId || patientData.document_id || "",
+                        nutriologoId: auth?.id
+                    });
+
+                    const emailRes = await emailService.sendPatientInvite({
+                        patientName: patientData.name,
+                        patientEmail: patientData.email,
+                        inviteUrl,
+                        nutriologoName: auth?.fullName || "Tu Nutriólogo",
+                        clinicalCode: patientData.clinicalCode || patientData.clinical_code || (saved?.id ? `PAC-${saved.id}` : "PACIENTE"),
+                        nutriologoId: auth?.id
+                    });
+
+                    if (emailRes.success) {
+                        showSuccess(`¡Paciente registrado y correo de activación enviado automáticamente a ${patientData.email}!`);
+                    } else {
+                        showSuccess(`¡Paciente registrado con éxito! (Nota: ${emailRes.message})`);
+                    }
+                } catch (emailErr) {
+                    console.error("Error al enviar email automático:", emailErr);
+                    showSuccess(`¡Paciente registrado con éxito! (No se pudo enviar el correo: ${emailErr.message})`);
+                }
+            } else {
+                showSuccess("¡Paciente registrado con éxito! Para envío automático por correo, añade tus credenciales de EmailJS en .env.local.");
+            }
+        } else {
+            showSuccess("Paciente registrado con éxito.");
         }
     };
 
@@ -47,9 +81,17 @@ function PatientsPage() {
     // Filter patients based on search and target goal
     const filteredPatients = useMemo(() => {
         if (!patients) return [];
+        const term = searchTerm.toLowerCase().trim();
         return patients.filter((patient) => {
-            const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                 (patient.email && patient.email.toLowerCase().includes(searchTerm.toLowerCase()));
+            const matchesSearch = !term ||
+                patient.name?.toLowerCase().includes(term) ||
+                patient.email?.toLowerCase().includes(term) ||
+                patient.document_id?.toLowerCase().includes(term) ||
+                patient.documentId?.toLowerCase().includes(term) ||
+                patient.clinical_code?.toLowerCase().includes(term) ||
+                patient.clinicalCode?.toLowerCase().includes(term) ||
+                String(patient.id).includes(term);
+
             const matchesGoal = filterGoal === "" || 
                                (patient.target && patient.target.toLowerCase().includes(filterGoal.toLowerCase())) ||
                                (patient.goal && patient.goal.toLowerCase().includes(filterGoal.toLowerCase()));
@@ -98,7 +140,7 @@ function PatientsPage() {
                         <div style={{ position: "relative" }}>
                             <i className="bi bi-search" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontSize: "0.9rem" }} />
                             <input
-                                placeholder="Buscar paciente por nombre o email..."
+                                placeholder="Buscar por nombre, cédula/DNI, código..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 style={{ paddingLeft: "2.25rem", fontSize: "0.85rem", height: "2.4rem" }}
@@ -125,6 +167,9 @@ function PatientsPage() {
                     {filteredPatients.length ? (
                         filteredPatients.map((patient) => {
                             const isSelected = selectedPatientId === patient.id;
+                            const docDisplay = patient.documentId || patient.document_id;
+                            const codeDisplay = patient.clinicalCode || patient.clinical_code || `PAC-${patient.id}`;
+
                             return (
                                 <div
                                     key={patient.id}
@@ -144,18 +189,23 @@ function PatientsPage() {
                                     className="patient-card-item"
                                 >
                                     <div>
-                                        <strong style={{ fontSize: "0.85rem", display: "block", color: isSelected ? "var(--primary-strong)" : "var(--text)" }}>
-                                            {patient.name}
-                                        </strong>
-                                        <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginTop: "0.2rem" }}>
-                                            {patient.age} años • {patient.target || "Control"}
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                            <strong style={{ fontSize: "0.85rem", display: "block", color: isSelected ? "var(--primary-strong)" : "var(--text)" }}>
+                                                {patient.name}
+                                            </strong>
+                                            <span className="badge" style={{ fontSize: "0.62rem", padding: "0.1rem 0.35rem", background: "var(--primary-soft)", color: "var(--primary-strong)", fontWeight: "600" }}>
+                                                {codeDisplay}
+                                            </span>
+                                        </div>
+                                        <span style={{ fontSize: "0.72rem", color: "var(--muted)", display: "block", marginTop: "0.2rem" }}>
+                                            {docDisplay ? `DNI: ${docDisplay} • ` : ""}{patient.age} años • {patient.target || "Control"}
                                         </span>
                                     </div>
-                                    <div style={{ textAlign: "right" }}>
-                                        <span className="badge" style={{ fontSize: "0.65rem", padding: "0.2rem 0.4rem", background: "var(--surface-soft)" }}>
+                                    <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.2rem" }}>
+                                        <span style={{ fontSize: "0.75rem", fontWeight: "700", padding: "0.2rem 0.5rem", borderRadius: "var(--radius-sm)", background: "var(--primary-soft)", color: "var(--primary-strong)", border: "1px solid var(--line)" }}>
                                             {getLastConsultation(patient.id)}
                                         </span>
-                                        <span style={{ display: "block", fontSize: "0.7rem", color: "var(--muted)", marginTop: "0.2rem" }}>Últ. Consulta</span>
+                                        <span style={{ display: "block", fontSize: "0.68rem", color: "var(--text-light)", fontWeight: "500" }}>Últ. Consulta</span>
                                     </div>
                                 </div>
                             );

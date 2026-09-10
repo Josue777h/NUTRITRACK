@@ -28,6 +28,8 @@ export const patientService = {
         const { data, error } = await supabase
             .from("patients")
             .insert({
+                clinical_code: patientData.clinical_code || patientData.clinicalCode || null,
+                document_id: patientData.document_id || patientData.documentId || null,
                 name: patientData.name,
                 age: Number(patientData.age),
                 weight: Number(patientData.weight),
@@ -50,22 +52,30 @@ export const patientService = {
 
     async updatePatient(id, patientData) {
         if (!isSupabaseConfigured) return null;
+        const payload = {
+            name: patientData.name,
+            age: Number(patientData.age),
+            weight: Number(patientData.weight),
+            height: Number(patientData.height),
+            target: patientData.target,
+            notes: patientData.notes || "",
+            email: patientData.email || null,
+            phone: patientData.phone || null,
+            gender: patientData.gender || null,
+            user_id: patientData.user_id || null,
+            allergies: patientData.allergies || [],
+            conditions: patientData.conditions || []
+        };
+        if (patientData.clinical_code || patientData.clinicalCode) {
+            payload.clinical_code = patientData.clinical_code || patientData.clinicalCode;
+        }
+        if (patientData.document_id !== undefined || patientData.documentId !== undefined) {
+            payload.document_id = patientData.document_id || patientData.documentId || null;
+        }
+
         const { data, error } = await supabase
             .from("patients")
-            .update({
-                name: patientData.name,
-                age: Number(patientData.age),
-                weight: Number(patientData.weight),
-                height: Number(patientData.height),
-                target: patientData.target,
-                notes: patientData.notes || "",
-                email: patientData.email || null,
-                phone: patientData.phone || null,
-                gender: patientData.gender || null,
-                user_id: patientData.user_id || null,
-                allergies: patientData.allergies || [],
-                conditions: patientData.conditions || []
-            })
+            .update(payload)
             .eq("id", id)
             .select()
             .single();

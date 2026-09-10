@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import LineChart from "./charts/LineChart";
 import PlanModal from "./PlanModal";
+import { emailService } from "../services/emailService";
 
 function formatDate(dateValue) {
     if (!dateValue) return "";
@@ -18,8 +19,9 @@ function samePatientId(a, b) {
 }
 
 function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
-    const { showSuccess, showError } = useToast();
+    const { showSuccess, showError, showWarning } = useToast();
     const {
+        auth,
         patients,
         appointments,
         plans,
@@ -35,10 +37,51 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
     const [planModalOpen, setPlanModalOpen] = useState(false);
     const [planModalMode, setPlanModalMode] = useState("add");
     const [selectedPlan, setSelectedPlan] = useState(null);
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+    const handleSendAutomaticEmail = async () => {
+        if (!patient?.email) {
+            showError("El paciente no tiene un correo asignado.");
+            return;
+        }
+
+        const inviteUrl = emailService.generateInviteUrl({
+            email: patient.email,
+            name: patient.name,
+            clinicalCode: patient.clinicalCode || patient.clinical_code || `PAC-${patient.id}`,
+            documentId: patient.documentId || patient.document_id || "",
+            nutriologoId: auth?.id
+        });
+
+        setIsSendingEmail(true);
+        try {
+            const res = await emailService.sendPatientInvite({
+                patientName: patient.name,
+                patientEmail: patient.email,
+                inviteUrl,
+                nutriologoName: auth?.fullName || "Tu Nutriólogo",
+                clinicalCode: patient.clinicalCode || patient.clinical_code || `PAC-${patient.id}`,
+                nutriologoId: auth?.id
+            });
+
+            if (res.success) {
+                showSuccess(`¡Correo de invitación enviado automáticamente a ${patient.email}!`);
+            } else if (res.notConfigured) {
+                navigator.clipboard.writeText(inviteUrl);
+                showWarning("Enlace copiado al portapapeles. Para envío automático directo, agrega tus claves de EmailJS en .env.local.");
+            }
+        } catch (err) {
+            showError(`Error al enviar correo: ${err.message}`);
+        } finally {
+            setIsSendingEmail(false);
+        }
+    };
 
     // Demographics form state
     const [demoForm, setDemoForm] = useState({
         name: "",
+        documentId: "",
+        clinicalCode: "",
         age: "",
         gender: "femenino",
         weight: "",
@@ -68,6 +111,8 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
         if (!patient) return;
         setDemoForm({
             name: patient.name || "",
+            documentId: patient.documentId || patient.document_id || "",
+            clinicalCode: patient.clinicalCode || patient.clinical_code || "",
             age: patient.age || "",
             gender: patient.gender || "femenino",
             weight: patient.weight || "",
@@ -227,6 +272,10 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
         const updated = {
             ...patient,
             name: demoForm.name,
+            documentId: demoForm.documentId,
+            document_id: demoForm.documentId,
+            clinicalCode: demoForm.clinicalCode,
+            clinical_code: demoForm.clinicalCode,
             age: Number(demoForm.age),
             gender: demoForm.gender,
             weight: Number(demoForm.weight),
@@ -341,13 +390,19 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                         {initials}
                     </div>
                     <div>
-                        <h3 style={{ fontSize: "1.25rem", fontWeight: "800", color: "var(--text)", margin: 0 }}>{patient.name}</h3>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <h3 style={{ fontSize: "1.25rem", fontWeight: "800", color: "var(--text)", margin: 0 }}>{patient.name}</h3>
+                            <span className="badge" style={{ background: "var(--primary-soft)", color: "var(--primary-strong)", fontWeight: "700", fontSize: "0.75rem" }}>
+                                {patient.clinicalCode || patient.clinical_code || `PAC-${patient.id}`}
+                            </span>
+                        </div>
                         <span style={{ fontSize: "0.8rem", color: "var(--muted)", display: "block", marginTop: "0.2rem" }}>
-                            ID: #{patient.id} • {patient.age} años • {patient.gender === 'femenino' ? 'Femenino' : 'Masculino'}
+                            {(patient.documentId || patient.document_id) ? `DNI/Cédula: ${patient.documentId || patient.document_id} • ` : ""}
+                            {patient.age} años • {patient.gender === 'femenino' ? 'Femenino' : 'Masculino'}
                         </span>
                     </div>
                 </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                     <span className={`status-pill status-${imcStatus(imc).color}`} style={{ display: "inline-flex", alignSelf: "center" }}>
                         IMC: {imc} ({imcStatus(imc).label})
                     </span>
@@ -359,6 +414,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                         }}
                         className="btn danger small"
                         style={{ padding: "0.4rem 0.6rem" }}
+                        title="Eliminar expediente"
                     >
                         <i className="bi bi-person-x-fill" />
                     </button>
@@ -413,6 +469,14 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                                     <div className="field">
                                         <label>Nombre Completo</label>
                                         <input value={demoForm.name} onChange={e => setDemoForm(p => ({ ...p, name: e.target.value }))} required />
+                                    </div>
+                                    <div className="field">
+                                        <label>Cédula / DNI / Documento</label>
+                                        <input value={demoForm.documentId} onChange={e => setDemoForm(p => ({ ...p, documentId: e.target.value }))} placeholder="Ej: 1098765432" />
+                                    </div>
+                                    <div className="field">
+                                        <label>Código Clínico Único</label>
+                                        <input value={demoForm.clinicalCode} onChange={e => setDemoForm(p => ({ ...p, clinicalCode: e.target.value }))} placeholder="PAC-#####" />
                                     </div>
                                     <div className="field">
                                         <label>Edad</label>
@@ -478,13 +542,67 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                                         </strong>
                                     </div>
                                 </div>
+
+                                {/* Tarjeta de Cuenta y Enlace de Registro de Paciente */}
+                                <div className="panel" style={{ padding: "1rem", border: "1px solid var(--line)", background: "var(--surface-soft)", borderRadius: "var(--radius)" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                                        <div>
+                                            <strong style={{ fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                                                <i className="bi bi-link-45deg" style={{ fontSize: "1.2rem", color: "var(--primary)" }} />
+                                                Enlace de Creación de Cuenta para Paciente
+                                            </strong>
+                                            <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginTop: "0.15rem" }}>
+                                                {patient.email ? `Envía este enlace para que ${patient.name} cree su contraseña y quede enlazado directamente a tu consultorio.` : "Asigna un correo al paciente para generar su enlace directo de invitación."}
+                                            </span>
+                                        </div>
+                                        {patient.email && (
+                                            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                                                <button
+                                                    type="button"
+                                                    className="btn primary small"
+                                                    disabled={isSendingEmail}
+                                                    style={{ fontSize: "0.75rem", display: "flex", gap: "0.3rem", alignItems: "center", background: "var(--primary)", color: "white" }}
+                                                    onClick={handleSendAutomaticEmail}
+                                                    title="Enviar correo de invitación directamente al paciente sin abrir Gmail"
+                                                >
+                                                    <i className={`bi ${isSendingEmail ? "bi-arrow-repeat spin" : "bi-send-fill"}`} />
+                                                    {isSendingEmail ? "Enviando..." : "Enviar Automático"}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn secondary small"
+                                                    style={{ fontSize: "0.75rem", display: "flex", gap: "0.3rem", alignItems: "center" }}
+                                                    onClick={() => {
+                                                        const inviteUrl = `${window.location.origin}/register?role=paciente&email=${encodeURIComponent(patient.email)}&name=${encodeURIComponent(patient.name)}&code=${encodeURIComponent(patient.clinicalCode || patient.clinical_code || "")}&doc=${encodeURIComponent(patient.documentId || patient.document_id || "")}`;
+                                                        navigator.clipboard.writeText(inviteUrl);
+                                                        showSuccess("¡Enlace de invitación copiado al portapapeles!");
+                                                    }}
+                                                    title="Copiar enlace para enviar por WhatsApp o chat"
+                                                >
+                                                    <i className="bi bi-clipboard" /> Copiar Enlace
+                                                </button>
+                                                <a
+                                                    href={`mailto:${patient.email}?subject=${encodeURIComponent("Invitación a NutriTrack - Accede a tu Plan Nutricional")}&body=${encodeURIComponent(`Hola ${patient.name},\n\nTu nutriólogo te ha creado tu expediente en NutriTrack.\nPara crear tu cuenta de paciente y ver tus planes alimenticios, haz clic en el siguiente enlace:\n\n${window.location.origin}/register?role=paciente&email=${encodeURIComponent(patient.email)}&name=${encodeURIComponent(patient.name)}&code=${encodeURIComponent(patient.clinicalCode || patient.clinical_code || "")}&doc=${encodeURIComponent(patient.documentId || patient.document_id || "")}\n\n¡Te esperamos!`)}`}
+                                                    className="btn ghost small"
+                                                    style={{ fontSize: "0.75rem", display: "flex", gap: "0.3rem", alignItems: "center", border: "1px solid var(--line)", textDecoration: "none" }}
+                                                    title="Abrir en tu programa de correo habitual"
+                                                >
+                                                    <i className="bi bi-envelope" /> Abrir en Gmail
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <div className="panel" style={{ padding: "1rem", border: "1px solid var(--line)", display: "grid", gap: "0.5rem" }}>
                                     <h5 style={{ fontWeight: "700" }}>Contacto y Datos Generales</h5>
+                                    <div><strong>Cédula / DNI:</strong> {patient.documentId || patient.document_id || "No registrada"}</div>
+                                    <div><strong>Código Clínico:</strong> {patient.clinicalCode || patient.clinical_code || `PAC-${patient.id}`}</div>
                                     <div><strong>Email:</strong> {patient.email || "No registrado"}</div>
                                     <div><strong>Teléfono:</strong> {patient.phone || "No registrado"}</div>
                                     <div><strong>Estado del tratamiento:</strong> <span style={{ color: "var(--primary)", fontWeight: "600" }}>Activo</span></div>
                                 </div>
-                                
+
                                 <div className="panel" style={{ padding: "1.25rem", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)" }}>
                                     <h5 style={{ fontWeight: "700", marginBottom: "1rem" }}>Historial Clínico (Línea de Tiempo)</h5>
                                     <div className="clinical-timeline">

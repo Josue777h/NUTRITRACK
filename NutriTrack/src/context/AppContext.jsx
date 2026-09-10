@@ -325,7 +325,14 @@ function AppProvider({ children }) {
     };
 
     const addPatient = async (payload) => {
+        // Generar código clínico único si no fue suministrado
+        const generatedCode = payload.clinicalCode || payload.clinical_code || `PAC-${Math.floor(10000 + Math.random() * 90000)}`;
+
         let newPatient = {
+            clinical_code: generatedCode,
+            clinicalCode: generatedCode,
+            document_id: (payload.documentId || payload.document_id || "").trim(),
+            documentId: (payload.documentId || payload.document_id || "").trim(),
             name: payload.name.trim(),
             age: Number(payload.age),
             weight: Number(payload.weight),
@@ -333,6 +340,8 @@ function AppProvider({ children }) {
             target: payload.target,
             notes: payload.notes?.trim() ?? "",
             email: payload.email?.trim().toLowerCase() || null,
+            phone: payload.phone?.trim() || null,
+            gender: payload.gender || "femenino",
             allergies: payload.allergies || [],
             conditions: payload.conditions || []
         };
@@ -381,7 +390,12 @@ function AppProvider({ children }) {
                 }
 
                 if (saved) {
-                    newPatient = { ...newPatient, ...saved };
+                    newPatient = { 
+                        ...newPatient, 
+                        ...saved,
+                        clinicalCode: saved.clinical_code || newPatient.clinical_code,
+                        documentId: saved.document_id || newPatient.document_id
+                    };
                     // Auditoría de creación de paciente
                     auditLogger.auditPatientAction("CREATED", newPatient.id, newPatient.name, state.auth.uid);
                 }
@@ -407,6 +421,10 @@ function AppProvider({ children }) {
 
     const updatePatient = async (patientId, payload) => {
         const updated = {
+            clinical_code: payload.clinicalCode || payload.clinical_code,
+            clinicalCode: payload.clinicalCode || payload.clinical_code,
+            document_id: (payload.documentId || payload.document_id || "").trim(),
+            documentId: (payload.documentId || payload.document_id || "").trim(),
             name: payload.name.trim(),
             age: Number(payload.age),
             weight: Number(payload.weight),
@@ -414,6 +432,8 @@ function AppProvider({ children }) {
             target: payload.target,
             notes: payload.notes?.trim() ?? "",
             email: payload.email?.trim().toLowerCase() || null,
+            phone: payload.phone?.trim() || null,
+            gender: payload.gender || "femenino",
             allergies: payload.allergies || [],
             conditions: payload.conditions || []
         };
@@ -872,7 +892,7 @@ function AppProvider({ children }) {
         }));
     };
 
-    const registerUser = async (userData) => {
+    const registerUser = async (userData, extraData = {}) => {
         const email = userData.email.trim().toLowerCase();
         const fullName = userData.fullName?.trim() || `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
 
@@ -882,7 +902,8 @@ function AppProvider({ children }) {
                     email,
                     userData.password,
                     "usuario",
-                    fullName
+                    fullName,
+                    extraData
                 );
                 // El trigger handle_new_user crea o vincula la ficha de paciente
                 // dentro de la base de datos, incluso si se exige confirmar email.
@@ -1025,20 +1046,57 @@ function AppProvider({ children }) {
             snack: "🍪 Snack"
         };
 
-        Object.entries(plan.meals || {}).forEach(([key, foods]) => {
-            if (Array.isArray(foods) && foods.length > 0) {
-                text += `\n*${mealTitles[key] || key.toUpperCase()}:*\n`;
-                foods.forEach((f) => {
-                    const name = typeof f === "string" ? f : f.name;
-                    const qty = f.qty ? ` (${f.qty} ${f.unit || ""})` : "";
-                    const notes = f.notes ? ` - _${f.notes}_` : "";
-                    text += `  • ${name}${qty}${notes}\n`;
-                });
-            }
-        });
+        if (Array.isArray(plan.meals)) {
+            plan.meals.forEach((m) => {
+                const foods = m.foods || [];
+                if (foods.length > 0) {
+                    text += `\n*🍳 ${m.name || "Comida"}${m.time ? ` (${m.time})` : ""}:*\n`;
+                    foods.forEach((f) => {
+                        const name = typeof f === "string" ? f : f.name;
+                        const qty = f.qty ? ` (${f.qty} ${f.unit || ""})` : "";
+                        const notes = f.notes ? ` - _${f.notes}_` : "";
+                        text += `  • ${name}${qty}${notes}\n`;
+                    });
+                }
+            });
+        } else {
+            Object.entries(plan.meals || {}).forEach(([key, foods]) => {
+                if (Array.isArray(foods) && foods.length > 0) {
+                    text += `\n*${mealTitles[key] || key.toUpperCase()}:*\n`;
+                    foods.forEach((f) => {
+                        const name = typeof f === "string" ? f : f.name;
+                        const qty = f.qty ? ` (${f.qty} ${f.unit || ""})` : "";
+                        const notes = f.notes ? ` - _${f.notes}_` : "";
+                        text += `  • ${name}${qty}${notes}\n`;
+                    });
+                }
+            });
+        }
+
+        if (plan.recommendations) {
+            text += `\n📝 *Recomendaciones Clínicas:*\n${plan.recommendations}\n`;
+        }
 
         text += `\n💧 *Recordatorio:* Recuerda tomar mínimo 2L de agua al día y registrar tu progreso en NutriTrack ✨`;
         return `https://wa.me/?text=${encodeURIComponent(text)}`;
+    };
+
+    const copyPlan = async (sourcePlanId, targetPatientId, newName) => {
+        const source = state.plans.find((p) => p.id === sourcePlanId);
+        if (!source) throw new Error("Plan de origen no encontrado");
+
+        const clonedMeals = JSON.parse(JSON.stringify(source.meals));
+        const clonedPayload = {
+            patientId: Number(targetPatientId),
+            name: newName || `${source.name} (Copia)`,
+            target: source.target,
+            calories: source.calories,
+            duration: source.duration,
+            meals: clonedMeals,
+            recommendations: source.recommendations || ""
+        };
+
+        return await addPlan(clonedPayload);
     };
 
     const value = useMemo(
@@ -1066,6 +1124,7 @@ function AppProvider({ children }) {
             deleteAppointmentPermanently,
             addPlan,
             updatePlan,
+            copyPlan,
             removePlan,
             addReport,
             updateReport,

@@ -52,7 +52,11 @@ function ShoppingListModal({ plan, isOpen, onClose }) {
 
         const seen = new Set();
 
-        Object.values(plan.meals).forEach((mealList) => {
+        const mealCollections = Array.isArray(plan.meals)
+            ? plan.meals.map((m) => (Array.isArray(m.foods) ? m.foods : []))
+            : Object.values(plan.meals);
+
+        mealCollections.forEach((mealList) => {
             if (!Array.isArray(mealList)) return;
             mealList.forEach((food) => {
                 const name = typeof food === "string" ? food : food.name;

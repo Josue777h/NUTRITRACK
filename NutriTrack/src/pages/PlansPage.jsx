@@ -6,8 +6,8 @@ import MacroDonutChart from "../components/charts/MacroDonutChart";
 import ShoppingListModal from "../components/ShoppingListModal";
 
 function PlansPage() {
-    const { auth, patients, plans, addPlan, updatePlan, removePlan, generateWhatsAppPlanMessage } = useApp();
-    const { showSuccess, showWarning } = useToast();
+    const { auth, patients, plans, addPlan, updatePlan, removePlan, copyPlan, generateWhatsAppPlanMessage } = useApp();
+    const { showSuccess, showWarning, showError } = useToast();
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState(null);
@@ -43,6 +43,15 @@ function PlansPage() {
         setSelectedPlan({ patientId: Number(selectedPatientId) });
         setModalMode('add');
         setIsModalOpen(true);
+    };
+
+    const handleDuplicatePlan = async (plan) => {
+        try {
+            await copyPlan(plan.id, plan.patientId, `${plan.name} (Copia)`);
+            showSuccess('Plan duplicado como nueva instancia independiente.');
+        } catch (err) {
+            showError('Error al duplicar el plan: ' + err.message);
+        }
     };
 
     const handleModalClose = () => {
@@ -130,7 +139,7 @@ function PlansPage() {
 
                                 {/* Macro distribution donut */}
                                 <div style={{ background: "var(--surface-soft)", padding: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)" }}>
-                                    <MacroDonutChart calories={plan.calories} size={110} />
+                                    <MacroDonutChart calories={plan.calories} macros={plan.macros} size={110} />
                                 </div>
 
                                 {/* Action Buttons */}
@@ -168,6 +177,15 @@ function PlansPage() {
                                             >
                                                 <i className="bi bi-whatsapp" />
                                             </a>
+                                            <button
+                                                className="btn ghost small"
+                                                type="button"
+                                                onClick={() => handleDuplicatePlan(plan)}
+                                                style={{ padding: "0.4rem 0.6rem" }}
+                                                title="Duplicar plan como copia independiente"
+                                            >
+                                                <i className="bi bi-files" />
+                                            </button>
                                             <button
                                                 className="btn ghost small"
                                                 type="button"
