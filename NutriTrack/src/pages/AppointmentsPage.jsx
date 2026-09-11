@@ -39,6 +39,130 @@ function formatDate(dateValue) {
     });
 }
 
+function AppointmentRowCompact({ slot, isNutri, patientName, onView, onEdit, onConfirm, onComplete, onCancel, onRemove }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const statusKey = slot.status?.toLowerCase() ?? "pendiente";
+    const si = STATUS_MAP[statusKey] ?? STATUS_MAP.pendiente;
+    const pillClass = STATUS_PILL_CLASS[statusKey] ?? "pendiente";
+    const typeInfo = TYPE_LABELS[slot.type] ?? { label: slot.type || "Consulta", icon: "bi-calendar-event" };
+    const isMutable = statusKey !== "cancelada" && statusKey !== "completada";
+
+    return (
+        <div className={`appt-row-compact status-${statusKey}`}>
+            <div
+                className="appt-row-header"
+                onClick={() => setIsExpanded(p => !p)}
+                title="Haz clic para ver u ocultar detalles"
+            >
+                <div className="appt-row-primary">
+                    <div className="appt-row-time">
+                        <i className="bi bi-calendar3" style={{ color: "var(--primary)" }} />
+                        <span>{formatDate(slot.date)}</span>
+                        <span style={{ color: "var(--muted)", fontWeight: 500, fontSize: "0.8rem" }}>{slot.time}</span>
+                    </div>
+
+                    <div className="appt-row-patient">
+                        <i className={`bi ${isNutri ? "bi-person-fill" : "bi-heart-pulse-fill"}`} style={{ color: "var(--primary)" }} />
+                        <span>{isNutri ? patientName : "Tu Nutriólogo"}</span>
+                    </div>
+
+                    <span className="appt-row-type">
+                        <i className={`bi ${typeInfo.icon}`} />
+                        {typeInfo.label}
+                    </span>
+
+                    <span className={`status-pill ${pillClass}`} style={{ fontSize: "0.72rem", padding: "0.15rem 0.55rem" }}>
+                        <i className={`bi ${si.icon}`} />
+                        {si.label}
+                    </span>
+                </div>
+
+                <div className="appt-row-actions" onClick={(e) => e.stopPropagation()}>
+                    {isNutri && (
+                        <>
+                            {statusKey === "pendiente" && (
+                                <button className="btn success small" type="button" onClick={onConfirm} title="Confirmar asistencia">
+                                    <i className="bi bi-check-circle" /> Confirmar
+                                </button>
+                            )}
+                            {statusKey === "confirmada" && onComplete && (
+                                <button className="btn success small" type="button" onClick={onComplete} style={{ background: "var(--primary)", border: "none", color: "white" }} title="Marcar consulta como completada">
+                                    <i className="bi bi-check2-all" /> Completar
+                                </button>
+                            )}
+                            {isMutable && (
+                                <button className="btn ghost small" type="button" onClick={onEdit} title="Reprogramar fecha u hora">
+                                    <i className="bi bi-calendar-event" /> Reprogramar
+                                </button>
+                            )}
+                            {isMutable && (
+                                <button className="btn danger small" type="button" onClick={onCancel} title="Cancelar cita">
+                                    <i className="bi bi-x-circle" /> Cancelar
+                                </button>
+                            )}
+                        </>
+                    )}
+
+                    <button
+                        className="btn secondary small"
+                        type="button"
+                        onClick={() => setIsExpanded(p => !p)}
+                        style={{ padding: "0.25rem 0.55rem", fontSize: "0.78rem" }}
+                        title={isExpanded ? "Ocultar notas" : "Desplegar detalles"}
+                    >
+                        <i className={`bi ${isExpanded ? "bi-chevron-up" : "bi-chevron-down"}`} />
+                        <span>{isExpanded ? "Menos" : "Detalles"}</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Acordeón desplegable de detalles */}
+            {isExpanded && (
+                <div className="appt-row-details">
+                    <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between" }}>
+                        <div style={{ display: "grid", gap: "0.35rem", flex: 1, minWidth: "240px" }}>
+                            {slot.reason && (
+                                <div>
+                                    <strong style={{ color: "var(--text)" }}>Motivo de consulta: </strong>
+                                    <span style={{ color: "var(--text-light)" }}>{slot.reason}</span>
+                                </div>
+                            )}
+                            {slot.notes ? (
+                                <div style={{ fontStyle: "italic", color: "var(--muted)" }}>
+                                    <i className="bi bi-chat-left-quote" style={{ marginRight: "0.35rem" }} />
+                                    {slot.notes}
+                                </div>
+                            ) : (
+                                <span style={{ color: "var(--muted)", fontStyle: "italic", fontSize: "0.78rem" }}>Sin notas adicionales registradas.</span>
+                            )}
+                            <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+                                ⏱ Duración estimada: {slot.duration || 30} minutos
+                            </span>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                            <button className="btn ghost small" type="button" onClick={onView}>
+                                <i className="bi bi-arrows-fullscreen" /> Ficha completa
+                            </button>
+                            {isNutri && !slot.archived && (
+                                <button
+                                    className="btn danger small"
+                                    type="button"
+                                    onClick={onRemove}
+                                    title="Quitar de la agenda y guardar en historial"
+                                    style={{ background: "transparent", color: "var(--danger)", border: "1px solid var(--danger)" }}
+                                >
+                                    <i className="bi bi-trash" /> Eliminar
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm, onComplete, onCancel, onRemove }) {
     const statusKey = slot.status?.toLowerCase() ?? "pendiente";
     const si  = STATUS_MAP[statusKey] ?? STATUS_MAP.pendiente;
@@ -162,6 +286,8 @@ function AppointmentsPage() {
     const [modalMode,      setModalMode]      = useState("view");
     const [activeFilter,   setActiveFilter]   = useState("todas");
     const [searchQuery,    setSearchQuery]    = useState("");
+    const [viewMode,       setViewMode]       = useState("list");
+    const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
 
     const allVisible = useMemo(() => {
         const source = isNutri
@@ -314,7 +440,29 @@ function AppointmentsPage() {
                                 : "Consulta las citas agendadas por tu nutricionista."}
                         </p>
                     </div>
-                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                        {/* Selector de visualización compacta / cuadrícula */}
+                        <div style={{ display: "inline-flex", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", overflow: "hidden", background: "var(--surface)" }}>
+                            <button
+                                type="button"
+                                className={`btn small ${viewMode === "list" ? "primary" : "ghost"}`}
+                                onClick={() => setViewMode("list")}
+                                style={{ borderRadius: 0, padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+                                title="Vista compacta en lista (ocupa menos espacio)"
+                            >
+                                <i className="bi bi-list-ul" /> Lista
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn small ${viewMode === "grid" ? "primary" : "ghost"}`}
+                                onClick={() => setViewMode("grid")}
+                                style={{ borderRadius: 0, padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+                                title="Vista en tarjetas cuadrícula"
+                            >
+                                <i className="bi bi-grid-fill" /> Tarjetas
+                            </button>
+                        </div>
+
                         {historyList.length > 0 && (
                             <button className="btn secondary" type="button" onClick={downloadHistory}>
                                 <i className="bi bi-download" />
@@ -386,67 +534,122 @@ function AppointmentsPage() {
                     </div>
                 )}
 
+                {/* Render de citas activas */}
                 {upcoming.length > 0 && (
-                    <>
+                    <div style={{ marginBottom: pastOnAgenda.length > 0 || historyList.length > 0 ? "1.5rem" : 0 }}>
                         <p className="appt-section-label">
                             <i className="bi bi-calendar3-event-fill" />
                             {isNutri ? "Próximas y activas" : "Mis próximas citas"}
                             <span className="appt-count">{upcoming.length}</span>
                         </p>
-                        <div className="appt-grid" style={{ marginBottom: pastOnAgenda.length > 0 || historyList.length > 0 ? "1.75rem" : 0 }}>
-                            {upcoming.map((slot) => (
-                                <AppointmentCard
-                                    key={slot.id}
-                                    slot={slot}
-                                    isNutri={isNutri}
-                                    patientName={getPatientName(slot.patientId)}
-                                    onView={() => openModal("view", slot)}
-                                    onEdit={() => openModal("edit", slot)}
-                                    onConfirm={() => {
-                                        updateAppointment(slot.id, { ...slot, status: "Confirmada" });
-                                        showSuccess("Cita confirmada.");
-                                    }}
-                                    onComplete={() => {
-                                        updateAppointment(slot.id, { ...slot, status: "Completada" });
-                                        showSuccess("¡Consulta marcada como completada!");
-                                    }}
-                                    onCancel={() => handleCancel(slot.id)}
-                                    onRemove={() => confirmRemove(slot.id)}
-                                />
-                            ))}
-                        </div>
-                    </>
+                        {viewMode === "list" ? (
+                            <div className="appt-list-compact">
+                                {upcoming.map((slot) => (
+                                    <AppointmentRowCompact
+                                        key={slot.id}
+                                        slot={slot}
+                                        isNutri={isNutri}
+                                        patientName={getPatientName(slot.patientId)}
+                                        onView={() => openModal("view", slot)}
+                                        onEdit={() => openModal("edit", slot)}
+                                        onConfirm={() => {
+                                            updateAppointment(slot.id, { ...slot, status: "Confirmada" });
+                                            showSuccess("Cita confirmada.");
+                                        }}
+                                        onComplete={() => {
+                                            updateAppointment(slot.id, { ...slot, status: "Completada" });
+                                            showSuccess("¡Consulta marcada como completada!");
+                                        }}
+                                        onCancel={() => handleCancel(slot.id)}
+                                        onRemove={() => confirmRemove(slot.id)}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="appt-grid">
+                                {upcoming.map((slot) => (
+                                    <AppointmentCard
+                                        key={slot.id}
+                                        slot={slot}
+                                        isNutri={isNutri}
+                                        patientName={getPatientName(slot.patientId)}
+                                        onView={() => openModal("view", slot)}
+                                        onEdit={() => openModal("edit", slot)}
+                                        onConfirm={() => {
+                                            updateAppointment(slot.id, { ...slot, status: "Confirmada" });
+                                            showSuccess("Cita confirmada.");
+                                        }}
+                                        onComplete={() => {
+                                            updateAppointment(slot.id, { ...slot, status: "Completada" });
+                                            showSuccess("¡Consulta marcada como completada!");
+                                        }}
+                                        onCancel={() => handleCancel(slot.id)}
+                                        onRemove={() => confirmRemove(slot.id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 )}
 
+                {/* Render de citas pasadas / Historial (Acordeón colapsable para no ocupar espacio innecesario) */}
                 {(pastOnAgenda.length > 0 || historyList.length > 0) && (
-                    <>
+                    <div style={{ marginTop: "1rem", borderTop: "1px solid var(--line)", paddingTop: "1rem" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-                            <p className="appt-section-label" style={{ margin: 0 }}>
-                                <i className="bi bi-clock-history" />
-                                Historial
+                            <button
+                                type="button"
+                                className="btn ghost"
+                                onClick={() => setIsHistoryExpanded(p => !p)}
+                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.6rem", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" }}
+                            >
+                                <i className="bi bi-clock-history" style={{ color: "var(--primary)" }} />
+                                <span>Historial (Completadas / Canceladas)</span>
                                 <span className="appt-count">{historyList.length}</span>
-                            </p>
+                                <i className={`bi ${isHistoryExpanded ? "bi-chevron-up" : "bi-chevron-down"}`} style={{ fontSize: "0.75rem", color: "var(--muted)" }} />
+                            </button>
+
                             <button className="btn secondary small" type="button" onClick={downloadHistory}>
                                 <i className="bi bi-download" />
                                 Descargar CSV
                             </button>
                         </div>
-                        <div className="appt-grid">
-                            {historyList.map((slot) => (
-                                <AppointmentCard
-                                    key={`hist-${slot.id}-${slot.archivedAt || slot.status}`}
-                                    slot={slot}
-                                    isNutri={isNutri}
-                                    patientName={getPatientName(slot.patientId)}
-                                    onView={() => openModal("view", slot)}
-                                    onEdit={() => openModal("edit", slot)}
-                                    onConfirm={() => {}}
-                                    onCancel={() => handleCancel(slot.id)}
-                                    onRemove={() => confirmRemove(slot.id)}
-                                />
-                            ))}
-                        </div>
-                    </>
+
+                        {isHistoryExpanded && (
+                            viewMode === "list" ? (
+                                <div className="appt-list-compact" style={{ animation: "fadeIn 0.2s ease-out" }}>
+                                    {historyList.map((slot) => (
+                                        <AppointmentRowCompact
+                                            key={`hist-${slot.id}-${slot.archivedAt || slot.status}`}
+                                            slot={slot}
+                                            isNutri={isNutri}
+                                            patientName={getPatientName(slot.patientId)}
+                                            onView={() => openModal("view", slot)}
+                                            onEdit={() => openModal("edit", slot)}
+                                            onConfirm={() => {}}
+                                            onCancel={() => handleCancel(slot.id)}
+                                            onRemove={() => confirmRemove(slot.id)}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="appt-grid" style={{ animation: "fadeIn 0.2s ease-out" }}>
+                                    {historyList.map((slot) => (
+                                        <AppointmentCard
+                                            key={`hist-${slot.id}-${slot.archivedAt || slot.status}`}
+                                            slot={slot}
+                                            isNutri={isNutri}
+                                            patientName={getPatientName(slot.patientId)}
+                                            onView={() => openModal("view", slot)}
+                                            onEdit={() => openModal("edit", slot)}
+                                            onConfirm={() => {}}
+                                            onCancel={() => handleCancel(slot.id)}
+                                            onRemove={() => confirmRemove(slot.id)}
+                                        />
+                                    ))}
+                                </div>
+                            )
+                        )}
+                    </div>
                 )}
 
                 {filteredAppointments.length === 0 && historyList.length === 0 && (
