@@ -58,7 +58,7 @@ const AppointmentModal = ({ appointment, patients = [], isOpen, onClose, onSave,
                 reason: ''
             });
         }
-        setIsEditing(mode === 'edit' || mode === 'add');
+        setIsEditing(mode === 'add' || (mode === 'edit' && auth.role === 'nutriologo'));
     }, [appointment, mode, isOpen, auth]);
 
     if (!isOpen) return null;
@@ -136,6 +136,15 @@ const AppointmentModal = ({ appointment, patients = [], isOpen, onClose, onSave,
         const appointmentData = {
             ...appointment,
             status: 'Cancelada'
+        };
+        onSave(appointmentData);
+        onClose();
+    };
+
+    const handleQuickComplete = () => {
+        const appointmentData = {
+            ...appointment,
+            status: 'Completada'
         };
         onSave(appointmentData);
         onClose();
@@ -301,9 +310,9 @@ const AppointmentModal = ({ appointment, patients = [], isOpen, onClose, onSave,
                         onChange={handleChange}
                     />
                 </div>
-                {auth.role === 'nutriologo' && (
+                {auth.role === 'nutriologo' && mode !== 'add' && (
                     <div className="field" style={{ gridColumn: 'span 2' }}>
-                        <label htmlFor="status">Estado</label>
+                        <label htmlFor="status">Estado Clínico de la Cita</label>
                         <select
                             id="status"
                             name="status"
@@ -344,26 +353,37 @@ const AppointmentModal = ({ appointment, patients = [], isOpen, onClose, onSave,
         </div>
     ) : (
         <div className="modal-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-            {auth.role === 'nutriologo' && appointment?.status?.toLowerCase() !== 'confirmada' && appointment?.status?.toLowerCase() !== 'completada' && (
-                <button className="btn success" onClick={handleQuickConfirm}>
-                    <i className="bi bi-check-circle" />
-                    Confirmar cita
-                </button>
-            )}
-            <button className="btn secondary" onClick={handleEdit}>
-                <i className="bi bi-pencil" />
-                Reprogramar
-            </button>
-            {appointment?.status?.toLowerCase() !== 'cancelada' && (
-                <button className="btn danger" onClick={handleQuickCancelStatus}>
-                    <i className="bi bi-calendar-x" />
-                    Cancelar cita
-                </button>
-            )}
-            {onDelete && appointment?.id && (
-                <button className="btn danger" onClick={handleDelete} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)' }}>
-                    <i className="bi bi-trash" />
-                    Eliminar
+            {auth.role === 'nutriologo' ? (
+                <>
+                    {appointment?.status?.toLowerCase() === 'pendiente' && (
+                        <button className="btn success" onClick={handleQuickConfirm}>
+                            <i className="bi bi-check-circle" /> Confirmar Asistencia
+                        </button>
+                    )}
+                    {appointment?.status?.toLowerCase() === 'confirmada' && (
+                        <button className="btn success" onClick={handleQuickComplete} style={{ background: 'var(--primary)', border: 'none' }}>
+                            <i className="bi bi-check2-all" /> Marcar como Completada
+                        </button>
+                    )}
+                    {appointment?.status?.toLowerCase() !== 'cancelada' && appointment?.status?.toLowerCase() !== 'completada' && (
+                        <button className="btn secondary" onClick={handleEdit}>
+                            <i className="bi bi-calendar-event" /> Reprogramar Cita
+                        </button>
+                    )}
+                    {appointment?.status?.toLowerCase() !== 'cancelada' && appointment?.status?.toLowerCase() !== 'completada' && (
+                        <button className="btn danger" onClick={handleQuickCancelStatus}>
+                            <i className="bi bi-x-circle" /> Cancelar Cita
+                        </button>
+                    )}
+                    {onDelete && appointment?.id && (
+                        <button className="btn danger" onClick={handleDelete} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)' }}>
+                            <i className="bi bi-trash" /> Eliminar
+                        </button>
+                    )}
+                </>
+            ) : (
+                <button type="button" className="btn secondary" onClick={onClose}>
+                    Cerrar
                 </button>
             )}
         </div>

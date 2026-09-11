@@ -117,10 +117,10 @@ function PatientsPage() {
     }
 
     return (
-        <section className="patients-split-view" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.25rem", height: "calc(100vh - 120px)", minHeight: "600px", alignItems: "stretch" }}>
+        <section className="patients-split-view" style={{ display: "grid", gridTemplateColumns: "minmax(280px, 340px) minmax(0, 1fr)", gap: "1.25rem", height: "calc(100vh - 125px)", minHeight: 0, overflow: "hidden", alignItems: "stretch" }}>
             
             {/* Left Pane: Directory (Always visible on desktop, responsive hides on mobile details) */}
-            <article className={`directory-pane ${selectedPatient ? "hide-on-mobile" : ""}`} style={{ display: "flex", flexDirection: "column", gap: "1rem", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: "1.25rem", background: "var(--surface)", height: "100%", overflowY: "hidden" }}>
+            <article className={`directory-pane ${selectedPatient ? "hide-on-mobile" : ""}`} style={{ display: "flex", flexDirection: "column", gap: "1rem", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: "1.25rem", background: "var(--surface)", height: "100%", minHeight: 0, overflow: "hidden" }}>
                 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <h3 style={{ fontSize: "1.25rem", fontWeight: "800", margin: 0 }}>Directorio</h3>
@@ -220,7 +220,7 @@ function PatientsPage() {
             </article>
 
             {/* Right Pane: Clinical Details Pane */}
-            <article className={`clinical-pane ${!selectedPatient ? "hide-on-mobile" : ""}`} style={{ height: "100%" }}>
+            <article className={`clinical-pane ${!selectedPatient ? "hide-on-mobile" : ""}`} style={{ height: "100%", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                 {selectedPatient && (
                     <button
                         className="btn secondary small show-on-mobile"

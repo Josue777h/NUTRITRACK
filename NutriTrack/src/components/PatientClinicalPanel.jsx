@@ -38,6 +38,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
     const [planModalMode, setPlanModalMode] = useState("add");
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [showInviteOptions, setShowInviteOptions] = useState(false);
 
     const handleSendAutomaticEmail = async () => {
         if (!patient?.email) {
@@ -381,10 +382,10 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
     };
 
     return (
-        <div className="panel" style={{ height: "100%", display: "flex", flexDirection: "column", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: "1.25rem", background: "var(--surface)", minHeight: "600px" }}>
+        <div className="panel" style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: "1.25rem", background: "var(--surface)", overflow: "hidden" }}>
             
             {/* Header: Demographics Summary */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--line)", paddingBottom: "1rem", marginBottom: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--line)", paddingBottom: "1rem", marginBottom: "1rem", flexShrink: 0 }}>
                 <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                     <div style={{ width: "3.5rem", height: "3.5rem", borderRadius: "50%", background: "var(--primary-soft)", color: "var(--primary-strong)", display: "grid", placeItems: "center", fontSize: "1.25rem", fontWeight: "800" }}>
                         {initials}
@@ -392,7 +393,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                     <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                             <h3 style={{ fontSize: "1.25rem", fontWeight: "800", color: "var(--text)", margin: 0 }}>{patient.name}</h3>
-                            <span className="badge" style={{ background: "var(--primary-soft)", color: "var(--primary-strong)", fontWeight: "700", fontSize: "0.75rem" }}>
+                            <span className="badge" style={{ background: "var(--primary-soft)", color: "var(--primary-strong)", fontWeight: "700", fontSize: "0.75rem", transform: "none", animation: "none", cursor: "default" }}>
                                 {patient.clinicalCode || patient.clinical_code || `PAC-${patient.id}`}
                             </span>
                         </div>
@@ -425,7 +426,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
             </div>
 
             {/* Tab Navigation Menu */}
-            <nav className="tab-menu" style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--line)", paddingBottom: "0.5rem", marginBottom: "1rem", overflowX: "auto", whiteSpace: "nowrap" }}>
+            <nav className="tab-menu" style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--line)", paddingBottom: "0.5rem", marginBottom: "1rem", overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0 }}>
                 {[
                     { key: "resumen", label: "Resumen", icon: "bi-card-list" },
                     { key: "consultas", label: "Consultas", icon: "bi-journal-medical" },
@@ -460,7 +461,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
             </nav>
 
             {/* Tab Panels Contents */}
-            <div style={{ flex: 1, overflowY: "auto", paddingRight: "0.25rem" }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: "0.25rem" }}>
                 
                 {/* 1. RESUMEN TAB */}
                 {activeTab === "resumen" && (
@@ -546,19 +547,40 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                                     </div>
                                 </div>
 
-                                {/* Tarjeta de Cuenta y Enlace de Registro de Paciente */}
-                                <div className="panel" style={{ padding: "1rem", border: "1px solid var(--line)", background: "var(--surface-soft)", borderRadius: "var(--radius)" }}>
+                                <div className="panel" style={{ padding: "1rem", border: "1px solid var(--line)", display: "grid", gap: "0.6rem" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-                                        <div>
-                                            <strong style={{ fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                                                <i className="bi bi-link-45deg" style={{ fontSize: "1.2rem", color: "var(--primary)" }} />
-                                                Enlace de Creación de Cuenta para Paciente
-                                            </strong>
-                                            <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block", marginTop: "0.15rem" }}>
-                                                {patient.email ? `Envía este enlace para que ${patient.name} cree su contraseña y quede enlazado directamente a tu consultorio.` : "Asigna un correo al paciente para generar su enlace directo de invitación."}
-                                            </span>
-                                        </div>
+                                        <h5 style={{ fontWeight: "700", margin: 0 }}>Contacto y Datos Generales</h5>
                                         {patient.email && (
+                                            <button
+                                                type="button"
+                                                className="btn ghost small"
+                                                onClick={() => setShowInviteOptions(p => !p)}
+                                                style={{
+                                                    fontSize: "0.75rem",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "0.35rem",
+                                                    border: "1px solid var(--line)",
+                                                    padding: "0.25rem 0.6rem",
+                                                    borderRadius: "var(--radius-sm)",
+                                                    background: showInviteOptions ? "var(--primary-soft)" : "transparent",
+                                                    color: showInviteOptions ? "var(--primary-strong)" : "var(--text)"
+                                                }}
+                                                title="Mostrar/ocultar opciones de invitación al portal"
+                                            >
+                                                <i className="bi bi-send" />
+                                                <span>{showInviteOptions ? "Ocultar opciones de acceso" : "Enviar acceso al portal"}</span>
+                                                <i className={`bi ${showInviteOptions ? "bi-chevron-up" : "bi-chevron-down"}`} style={{ fontSize: "0.65rem" }} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Opciones desplegables de invitación si el nutriólogo las activa */}
+                                    {showInviteOptions && patient.email && (
+                                        <div style={{ padding: "0.75rem", background: "var(--surface-soft)", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)", display: "grid", gap: "0.5rem" }}>
+                                            <span style={{ fontSize: "0.73rem", color: "var(--muted)" }}>
+                                                Opciones para que <strong>{patient.name}</strong> cree su contraseña e ingrese al consultorio virtual:
+                                            </span>
                                             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                                                 <button
                                                     type="button"
@@ -566,7 +588,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                                                     disabled={isSendingEmail}
                                                     style={{ fontSize: "0.75rem", display: "flex", gap: "0.3rem", alignItems: "center", background: "var(--primary)", color: "white" }}
                                                     onClick={handleSendAutomaticEmail}
-                                                    title="Enviar correo de invitación directamente al paciente sin abrir Gmail"
+                                                    title="Enviar correo de invitación directamente al paciente"
                                                 >
                                                     <i className={`bi ${isSendingEmail ? "bi-arrow-repeat spin" : "bi-send-fill"}`} />
                                                     {isSendingEmail ? "Enviando..." : "Enviar Automático"}
@@ -593,12 +615,9 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                                                     <i className="bi bi-envelope" /> Abrir en Gmail
                                                 </a>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
+                                        </div>
+                                    )}
 
-                                <div className="panel" style={{ padding: "1rem", border: "1px solid var(--line)", display: "grid", gap: "0.5rem" }}>
-                                    <h5 style={{ fontWeight: "700" }}>Contacto y Datos Generales</h5>
                                     <div><strong>Cédula / DNI:</strong> {patient.documentId || patient.document_id || "No registrada"}</div>
                                     <div><strong>Código Clínico:</strong> {patient.clinicalCode || patient.clinical_code || `PAC-${patient.id}`}</div>
                                     <div><strong>Email:</strong> {patient.email || "No registrado"}</div>

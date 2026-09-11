@@ -39,7 +39,7 @@ function formatDate(dateValue) {
     });
 }
 
-function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm, onCancel, onRemove }) {
+function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm, onComplete, onCancel, onRemove }) {
     const statusKey = slot.status?.toLowerCase() ?? "pendiente";
     const si  = STATUS_MAP[statusKey] ?? STATUS_MAP.pendiente;
     const pillClass = STATUS_PILL_CLASS[statusKey] ?? "pendiente";
@@ -96,22 +96,27 @@ function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm
 
             <div className="appt-actions-row">
                 <button className="btn secondary small" type="button" onClick={onView}>
-                    <i className="bi bi-eye" /> Detalles
+                    <i className="bi bi-eye" /> Ver detalles
                 </button>
                 {isNutri && (
                     <>
                         {statusKey === "pendiente" && (
-                            <button className="btn success small" type="button" onClick={onConfirm}>
+                            <button className="btn success small" type="button" onClick={onConfirm} title="Confirmar asistencia">
                                 <i className="bi bi-check-circle" /> Confirmar
                             </button>
                         )}
-                        {isMutable && (
-                            <button className="btn ghost small" type="button" onClick={onEdit}>
-                                <i className="bi bi-pencil" /> Editar
+                        {statusKey === "confirmada" && onComplete && (
+                            <button className="btn success small" type="button" onClick={onComplete} style={{ background: "var(--primary)", border: "none", color: "white" }} title="Marcar consulta como completada">
+                                <i className="bi bi-check2-all" /> Completar
                             </button>
                         )}
                         {isMutable && (
-                            <button className="btn danger small" type="button" onClick={onCancel}>
+                            <button className="btn ghost small" type="button" onClick={onEdit} title="Reprogramar fecha u hora">
+                                <i className="bi bi-calendar-event" /> Reprogramar
+                            </button>
+                        )}
+                        {isMutable && (
+                            <button className="btn danger small" type="button" onClick={onCancel} title="Cancelar cita">
                                 <i className="bi bi-x-circle" /> Cancelar
                             </button>
                         )}
@@ -123,7 +128,7 @@ function AppointmentCard({ slot, isNutri, patientName, onView, onEdit, onConfirm
                                 title="Quitar de la agenda (se guarda en historial)"
                                 style={{ background: "transparent", color: "var(--danger)", border: "1px solid var(--danger)" }}
                             >
-                                <i className="bi bi-trash" /> Eliminar
+                                <i className="bi bi-trash" />
                             </button>
                         )}
                         {slot.archived && (
@@ -400,6 +405,10 @@ function AppointmentsPage() {
                                     onConfirm={() => {
                                         updateAppointment(slot.id, { ...slot, status: "Confirmada" });
                                         showSuccess("Cita confirmada.");
+                                    }}
+                                    onComplete={() => {
+                                        updateAppointment(slot.id, { ...slot, status: "Completada" });
+                                        showSuccess("¡Consulta marcada como completada!");
                                     }}
                                     onCancel={() => handleCancel(slot.id)}
                                     onRemove={() => confirmRemove(slot.id)}
