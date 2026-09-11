@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { useToast } from '../context/ToastContext';
 import { useApp } from '../context/AppContext';
 import FoodSearchModal from './FoodSearchModal';
+import { PRESET_DIET_TEMPLATES } from '../data/dietTemplates';
 
 const DEFAULT_MEAL_TYPES = [
     { id: 'desayuno', name: 'Desayuno', icon: 'bi-brightness-high-fill', color: '#f59e0b', defaultTime: '08:00', defaultPct: 25 },
@@ -10,13 +11,20 @@ const DEFAULT_MEAL_TYPES = [
     { id: 'almuerzo', name: 'Almuerzo', icon: 'bi-egg-fried', color: '#16a34a', defaultTime: '14:00', defaultPct: 30 },
     { id: 'merienda', name: 'Merienda', icon: 'bi-cup-hot-fill', color: '#2563eb', defaultTime: '17:00', defaultPct: 10 },
     { id: 'cena', name: 'Cena', icon: 'bi-moon-stars-fill', color: '#8b5cf6', defaultTime: '20:00', defaultPct: 20 },
-    { id: 'snack', name: 'Snack', icon: 'bi-cookie', color: '#ec4899', defaultTime: '22:00', defaultPct: 5 }
+    { id: 'snack', name: 'Snack / Colación', icon: 'bi-cookie', color: '#ec4899', defaultTime: '22:00', defaultPct: 5 }
 ];
 
 const DEFAULT_RECOMMENDATIONS = `- Mantener una hidratación adecuada consumiendo al menos 2 litros de agua natural al día.
 - Respetar los horarios recomendados y las porciones indicadas.
 - Priorizar alimentos frescos, proteínas magras y cereales integrales.
 - Ante cualquier duda, síntoma o ajuste necesario, consultar directamente al nutricionista.`;
+
+const MACRO_PRESETS = [
+    { label: "Equilibrada (50C / 25P / 25G)", carbs: 50, protein: 25, fat: 25 },
+    { label: "Alta en Proteína (40C / 35P / 25G)", carbs: 40, protein: 35, fat: 25 },
+    { label: "Baja en Carbohidratos (25C / 35P / 40G)", carbs: 25, protein: 35, fat: 40 },
+    { label: "Keto / Cetogénica (5C / 25P / 70G)", carbs: 5, protein: 25, fat: 70 }
+];
 
 function createDefaultMeals() {
     return DEFAULT_MEAL_TYPES.map((t) => ({
@@ -33,40 +41,39 @@ function createDefaultMeals() {
 
 const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view' }) => {
     const { showError, showSuccess } = useToast();
-    const { auth, plans, dietTemplates, saveDietTemplate, generateWhatsAppPlanMessage } = useApp();
+    const { dietTemplates, saveDietTemplate } = useApp();
 
     const [isEditing, setIsEditing] = useState(mode === 'edit' || mode === 'add');
-    const [creationMode, setCreationMode] = useState('custom'); // 'custom', 'template', 'copy'
-    
-    // Almacenamiento del plan en formulario
+    const [currentStep, setCurrentStep] = useState(1);
+
+    // Formulario principal
     const [form, setForm] = useState({
         patientId: '',
         name: '',
         target: 'Reducir IMC',
         calories: '2000',
         duration: '8',
-        proteinPct: 30,
-        carbsPct: 45,
+        proteinPct: 25,
+        carbsPct: 50,
         fatPct: 25,
         recommendations: DEFAULT_RECOMMENDATIONS,
         meals: createDefaultMeals()
     });
 
-    // Acordeones abiertos/cerrados por ID de comida
-    const [openMeals, setOpenMeals] = useState({});
+    // Pestaña activa en Paso 3 (Comidas)
+    const [activeMealId, setActiveMealId] = useState('desayuno');
 
     // Modal de búsqueda de alimentos
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [targetMealId, setTargetMealId] = useState(null);
+    const [searchTargetMealId, setSearchTargetMealId] = useState('desayuno');
 
-    // Edición manual de alimento en fila
-    const [editingFoodKey, setEditingFoodKey] = useState(null); // { mealId, foodIndex }
+    // Input rápido de alimento manual en comida activa
+    const [manualFood, setManualFood] = useState({ name: '', qty: '100', unit: 'g', calories: '100' });
+    const [isAddingManual, setIsAddingManual] = useState(false);
 
-    // Plantilla o plan copiado seleccionado
-    const [selectedTemplateId, setSelectedTemplateId] = useState('');
-    const [selectedCopyPlanId, setSelectedCopyPlanId] = useState('');
-    const [newMealName, setNewMealName] = useState('');
-    const [isAddingMeal, setIsAddingMeal] = useState(false);
+    // Opción para guardar como plantilla reutilizable en paso 4
+    const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+    const [templateName, setTemplateName] = useState('');
 
     // Paciente actualmente seleccionado
     const selectedPatient = useMemo(() => {
@@ -74,12 +81,23 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
         return patients.find((p) => Number(p.id) === Number(form.patientId)) || null;
     }, [patients, form.patientId]);
 
+    // Todas las plantillas disponibles (incorporadas + personalizadas del usuario)
+    const allTemplates = useMemo(() => {
+        const custom = Array.isArray(dietTemplates) ? dietTemplates : [];
+        const builtIn = PRESET_DIET_TEMPLATES || [];
+        const byId = new Map();
+        [...builtIn, ...custom].forEach((t) => byId.set(t.id, t));
+        return Array.from(byId.values());
+    }, [dietTemplates]);
+
     // Inicializar estado al abrir o cambiar de plan
     useEffect(() => {
         if (!isOpen) return;
 
+        setCurrentStep(1);
+        setIsEditing(mode === 'edit' || mode === 'add');
+
         if (plan && (mode === 'edit' || mode === 'view')) {
-            // Normalizar comidas si vienen como diccionario u objeto
             let normalizedMeals = [];
             if (Array.isArray(plan.meals)) {
                 normalizedMeals = plan.meals.map((m) => ({
@@ -113,457 +131,245 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                 target: plan.target || 'Reducir IMC',
                 calories: String(plan.calories || 2000),
                 duration: String(plan.duration || 8),
-                proteinPct: Number(plan.macros?.protein) || 30,
-                carbsPct: Number(plan.macros?.carbs) || 45,
+                proteinPct: Number(plan.macros?.protein) || 25,
+                carbsPct: Number(plan.macros?.carbs) || 50,
                 fatPct: Number(plan.macros?.fat) || 25,
                 recommendations: plan.recommendations || DEFAULT_RECOMMENDATIONS,
                 meals: normalizedMeals
             });
-
-            // Abrir todos los acordeones por defecto
-            const initialOpen = {};
-            normalizedMeals.forEach((m) => { initialOpen[m.id] = true; });
-            setOpenMeals(initialOpen);
-        } else if (mode === 'add') {
-            // Revisar si existe borrador en LocalStorage
-            const pId = plan?.patientId ? String(plan.patientId) : (patients[0]?.id ? String(patients[0].id) : '');
-            const draftKey = `nutritrack_draft_plan_${pId}`;
-            const savedDraft = localStorage.getItem(draftKey);
-
-            let initialForm = {
-                patientId: pId,
-                name: 'Nuevo Plan Alimenticio',
-                target: 'Reducir IMC',
+            setActiveMealId(normalizedMeals[0]?.id || 'desayuno');
+        } else {
+            // Modo nuevo: intentar preseleccionar el primer paciente si existe
+            const firstPat = patients[0]?.id ? String(patients[0].id) : '';
+            setForm({
+                patientId: firstPat,
+                name: firstPat ? `Plan Nutricional - ${patients[0]?.name || ''}` : 'Plan Nutricional',
+                target: patients[0]?.target || patients[0]?.goal || 'Reducir IMC',
                 calories: '2000',
                 duration: '8',
-                proteinPct: 30,
-                carbsPct: 45,
+                proteinPct: 25,
+                carbsPct: 50,
                 fatPct: 25,
                 recommendations: DEFAULT_RECOMMENDATIONS,
                 meals: createDefaultMeals()
-            };
+            });
+            setActiveMealId('desayuno');
+        }
+        setSaveAsTemplate(false);
+        setTemplateName('');
+    }, [isOpen, plan, mode, patients]);
 
-            if (savedDraft) {
-                try {
-                    const parsed = JSON.parse(savedDraft);
-                    if (parsed && parsed.meals) {
-                        initialForm = { ...initialForm, ...parsed, patientId: pId };
-                    }
-                } catch {
-                    // ignore draft error
-                }
-            }
+    // Cuando cambia el paciente en el paso 1, actualizar nombre del plan si está genérico
+    const handlePatientChange = (patientId) => {
+        const pat = patients.find((p) => Number(p.id) === Number(patientId));
+        setForm((prev) => ({
+            ...prev,
+            patientId,
+            name: pat ? `Plan Nutricional - ${pat.name}` : prev.name,
+            target: pat?.target || pat?.goal || prev.target
+        }));
+    };
 
-            setForm(initialForm);
-            const initialOpen = {};
-            initialForm.meals.forEach((m) => { initialOpen[m.id] = true; });
-            setOpenMeals(initialOpen);
+    // Aplicar plantilla clínica predeterminada con 1 clic
+    const handleApplyTemplate = (template) => {
+        if (!template) return;
+
+        let normalizedMeals = [];
+        if (Array.isArray(template.meals)) {
+            normalizedMeals = template.meals.map((m) => ({
+                id: m.id || `meal-${Math.random().toString(36).substring(7)}`,
+                name: m.name || 'Comida',
+                time: m.time || '12:00',
+                targetPct: Number(m.targetPct) || 15,
+                icon: m.icon || 'bi-clock',
+                color: m.color || '#49b54c',
+                notes: m.notes || '',
+                foods: Array.isArray(m.foods) ? m.foods : []
+            }));
+        } else if (template.meals && typeof template.meals === 'object') {
+            normalizedMeals = DEFAULT_MEAL_TYPES.map((def) => ({
+                id: def.id,
+                name: def.name,
+                time: def.defaultTime,
+                targetPct: def.defaultPct,
+                icon: def.icon,
+                color: def.color,
+                notes: '',
+                foods: Array.isArray(template.meals[def.id]) ? template.meals[def.id] : []
+            }));
+        } else {
+            normalizedMeals = createDefaultMeals();
         }
 
-        setIsEditing(mode === 'edit' || mode === 'add');
-        setCreationMode('custom');
-        setEditingFoodKey(null);
-    }, [plan, mode, isOpen, patients]);
+        setForm((prev) => ({
+            ...prev,
+            name: selectedPatient ? `Plan: ${template.name} - ${selectedPatient.name}` : template.name,
+            target: template.target || prev.target,
+            calories: String(template.calories || 2000),
+            duration: String(template.duration || 8),
+            proteinPct: Number(template.macros?.protein) || 25,
+            carbsPct: Number(template.macros?.carbs) || 50,
+            fatPct: Number(template.macros?.fat) || 25,
+            recommendations: template.recommendations || prev.recommendations,
+            meals: normalizedMeals
+        }));
 
-    // Auto-guardar borrador al editar en modo add
-    useEffect(() => {
-        if (!isOpen || mode !== 'add' || !form.patientId) return;
-        const draftKey = `nutritrack_draft_plan_${form.patientId}`;
-        const timer = setTimeout(() => {
-            localStorage.setItem(draftKey, JSON.stringify(form));
-        }, 1000);
-        return () => clearTimeout(timer);
-    }, [form, isOpen, mode]);
+        showSuccess(`Plantilla "${template.name}" cargada con éxito.`);
+    };
 
-    // Cálculo de macros meta en gramos
-    const targetMacrosGrams = useMemo(() => {
-        const cal = Number(form.calories) || 2000;
-        const pGrams = Math.round((cal * (Number(form.proteinPct) / 100)) / 4);
-        const cGrams = Math.round((cal * (Number(form.carbsPct) / 100)) / 4);
-        const fGrams = Math.round((cal * (Number(form.fatPct) / 100)) / 9);
-        return { protein: pGrams, carbs: cGrams, fat: fGrams };
+    // Cálculos de macronutrientes en gramos
+    const calculatedMacros = useMemo(() => {
+        const totalKcal = Number(form.calories) || 2000;
+        const pKcal = totalKcal * ((Number(form.proteinPct) || 0) / 100);
+        const cKcal = totalKcal * ((Number(form.carbsPct) || 0) / 100);
+        const fKcal = totalKcal * ((Number(form.fatPct) || 0) / 100);
+
+        return {
+            proteinGrams: Math.round(pKcal / 4),
+            carbsGrams: Math.round(cKcal / 4),
+            fatGrams: Math.round(fKcal / 9),
+            totalPct: Number(form.proteinPct) + Number(form.carbsPct) + Number(form.fatPct)
+        };
     }, [form.calories, form.proteinPct, form.carbsPct, form.fatPct]);
 
-    // Resumen nutricional actual en tiempo real
-    const liveNutrition = useMemo(() => {
-        let totalCal = 0;
-        let totalP = 0;
-        let totalC = 0;
-        let totalF = 0;
+    // Cálculo del total de calorías y alimentos configurados en el plan
+    const planStats = useMemo(() => {
+        let totalCalories = 0;
+        let totalProtein = 0;
+        let totalCarbs = 0;
+        let totalFat = 0;
+        let totalFoods = 0;
 
-        (form.meals || []).forEach((meal) => {
-            (meal.foods || []).forEach((f) => {
-                totalCal += Number(f.calories) || 0;
-                totalP += Number(f.protein) || 0;
-                totalC += Number(f.carbohydrates) || 0;
-                totalF += Number(f.fat) || 0;
+        form.meals.forEach((m) => {
+            (m.foods || []).forEach((f) => {
+                totalCalories += Number(f.calories) || 0;
+                totalProtein += Number(f.protein) || 0;
+                totalCarbs += Number(f.carbohydrates) || 0;
+                totalFat += Number(f.fat) || 0;
+                totalFoods += 1;
             });
         });
 
-        const targetCal = Number(form.calories) || 2000;
-        const calPct = targetCal > 0 ? Math.round((totalCal / targetCal) * 100) : 0;
-        const pPct = targetMacrosGrams.protein > 0 ? Math.round((totalP / targetMacrosGrams.protein) * 100) : 0;
-        const cPct = targetMacrosGrams.carbs > 0 ? Math.round((totalC / targetMacrosGrams.carbs) * 100) : 0;
-        const fPct = targetMacrosGrams.fat > 0 ? Math.round((totalF / targetMacrosGrams.fat) * 100) : 0;
+        return { totalCalories, totalProtein: Math.round(totalProtein), totalCarbs: Math.round(totalCarbs), totalFat: Math.round(totalFat), totalFoods };
+    }, [form.meals]);
 
-        return {
-            calories: Math.round(totalCal),
-            protein: +totalP.toFixed(1),
-            carbohydrates: +totalC.toFixed(1),
-            fat: +totalF.toFixed(1),
-            calPct,
-            pPct,
-            cPct,
-            fPct,
-            calDiff: Math.round(totalCal - targetCal)
-        };
-    }, [form.meals, form.calories, targetMacrosGrams]);
+    // Comida activa en Paso 3
+    const activeMeal = useMemo(() => {
+        return form.meals.find((m) => m.id === activeMealId) || form.meals[0] || null;
+    }, [form.meals, activeMealId]);
 
-    if (!isOpen) return null;
+    // Calorías de la comida activa
+    const activeMealKcal = useMemo(() => {
+        if (!activeMeal || !Array.isArray(activeMeal.foods)) return 0;
+        return activeMeal.foods.reduce((acc, f) => acc + (Number(f.calories) || 0), 0);
+    }, [activeMeal]);
 
-    const toggleMealAccordion = (mealId) => {
-        setOpenMeals((prev) => ({ ...prev, [mealId]: !prev[mealId] }));
-    };
-
-    const expandAllMeals = () => {
-        const next = {};
-        form.meals.forEach((m) => { next[m.id] = true; });
-        setOpenMeals(next);
-    };
-
-    const collapseAllMeals = () => {
-        setOpenMeals({});
-    };
-
-    const handleFieldChange = (e) => {
-        const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
-    };
-
-    // ── Acciones de Creación Rápida ──
-    const handleStartFromScratch = () => {
-        setCreationMode('custom');
-        setForm((prev) => ({
-            ...prev,
-            meals: createDefaultMeals()
-        }));
-        showSuccess('Estructura limpia lista para personalizar desde cero.');
-    };
-
-    const handleApplyTemplate = (tplId) => {
-        setSelectedTemplateId(tplId);
-        if (!tplId) return;
-        const found = (dietTemplates || []).find((t) => t.id === tplId);
-        if (found) {
-            let loadedMeals = [];
-            if (Array.isArray(found.meals)) {
-                loadedMeals = JSON.parse(JSON.stringify(found.meals));
-            } else if (found.meals && typeof found.meals === 'object') {
-                loadedMeals = DEFAULT_MEAL_TYPES.map((def) => ({
-                    id: def.id,
-                    name: def.name,
-                    time: def.defaultTime,
-                    targetPct: def.defaultPct,
-                    icon: def.icon,
-                    color: def.color,
-                    notes: '',
-                    foods: found.meals[def.id] ? JSON.parse(JSON.stringify(found.meals[def.id])) : []
-                }));
-            }
-
-            setForm((prev) => ({
-                ...prev,
-                name: found.name,
-                target: found.target || prev.target,
-                calories: String(found.calories || prev.calories),
-                duration: String(found.duration || prev.duration),
-                proteinPct: Number(found.macros?.protein) || 30,
-                carbsPct: Number(found.macros?.carbs) || 45,
-                fatPct: Number(found.macros?.fat) || 25,
-                meals: loadedMeals
-            }));
-
-            const nextOpen = {};
-            loadedMeals.forEach((m) => { nextOpen[m.id] = true; });
-            setOpenMeals(nextOpen);
-
-            showSuccess(`Plantilla "${found.name}" cargada. Ahora puedes editar todo libremente.`);
-        }
-    };
-
-    const handleCopyPlan = (planId) => {
-        setSelectedCopyPlanId(planId);
-        if (!planId) return;
-        const found = (plans || []).find((p) => p.id === Number(planId) || p.id === planId);
-        if (found) {
-            let copiedMeals = [];
-            if (Array.isArray(found.meals)) {
-                copiedMeals = JSON.parse(JSON.stringify(found.meals));
-            } else if (found.meals && typeof found.meals === 'object') {
-                copiedMeals = DEFAULT_MEAL_TYPES.map((def) => ({
-                    id: def.id,
-                    name: def.name,
-                    time: def.defaultTime,
-                    targetPct: def.defaultPct,
-                    icon: def.icon,
-                    color: def.color,
-                    notes: '',
-                    foods: found.meals[def.id] ? JSON.parse(JSON.stringify(found.meals[def.id])) : []
-                }));
-            }
-
-            setForm((prev) => ({
-                ...prev,
-                name: `${found.name} (Copia)`,
-                target: found.target || prev.target,
-                calories: String(found.calories || prev.calories),
-                duration: String(found.duration || prev.duration),
-                recommendations: found.recommendations || prev.recommendations,
-                meals: copiedMeals
-            }));
-
-            const nextOpen = {};
-            copiedMeals.forEach((m) => { nextOpen[m.id] = true; });
-            setOpenMeals(nextOpen);
-
-            showSuccess(`Plan copiado como nueva instancia independiente. Puedes modificarlo libremente.`);
-        }
-    };
-
-    // ── Distribución Automática de Calorías ──
-    const handleDistributeCalories = () => {
-        const totalMeals = form.meals.length;
-        if (totalMeals === 0) return;
-
-        // Si son las 6 estándar, aplicar proporción equilibrada
-        let updatedMeals = [];
-        if (totalMeals === 6) {
-            const defaultPcts = [25, 10, 30, 10, 20, 5];
-            updatedMeals = form.meals.map((m, idx) => ({
-                ...m,
-                targetPct: defaultPcts[idx] || Math.round(100 / totalMeals)
-            }));
-        } else {
-            const evenPct = Math.round(100 / totalMeals);
-            updatedMeals = form.meals.map((m) => ({
-                ...m,
-                targetPct: evenPct
-            }));
-        }
-
-        setForm((prev) => ({ ...prev, meals: updatedMeals }));
-        showSuccess('Distribución calórica optimizada por tiempo de comida.');
-    };
-
-    // ── Estructura Dinámica de Comidas ──
-    const handleAddMealTime = () => {
-        if (!newMealName.trim()) {
-            showError('Escribe un nombre para el nuevo tiempo de comida.');
-            return;
-        }
-
-        const newId = `custom-meal-${Date.now()}`;
-        const newMeal = {
-            id: newId,
-            name: newMealName.trim(),
-            time: '16:00',
-            targetPct: 10,
-            icon: 'bi-cup-straw',
-            color: '#10b981',
-            notes: '',
-            foods: []
-        };
-
-        setForm((prev) => ({
-            ...prev,
-            meals: [...prev.meals, newMeal]
-        }));
-        setOpenMeals((prev) => ({ ...prev, [newId]: true }));
-        setNewMealName('');
-        setIsAddingMeal(false);
-        showSuccess(`Tiempo de comida "${newMeal.name}" agregado.`);
-    };
-
-    const handleRemoveMeal = (mealId) => {
-        if (form.meals.length <= 1) {
-            showError('El plan debe tener al menos un tiempo de comida.');
-            return;
-        }
-        setForm((prev) => ({
-            ...prev,
-            meals: prev.meals.filter((m) => m.id !== mealId)
-        }));
-    };
-
-    const handleMoveMeal = (index, direction) => {
-        const list = [...form.meals];
-        if (direction === 'up' && index === 0) return;
-        if (direction === 'down' && index === list.length - 1) return;
-        const swapIdx = direction === 'up' ? index - 1 : index + 1;
-        [list[index], list[swapIdx]] = [list[swapIdx], list[index]];
-        setForm((prev) => ({ ...prev, meals: list }));
-    };
-
-    const handleUpdateMealField = (mealId, field, value) => {
-        setForm((prev) => ({
-            ...prev,
-            meals: prev.meals.map((m) => (m.id === mealId ? { ...m, [field]: value } : m))
-        }));
-    };
-
-    // ── Manejo de Alimentos dentro de Comida ──
-    const openFoodSearch = (mealId) => {
-        setTargetMealId(mealId);
-        setIsSearchOpen(true);
-    };
-
+    // Agregar alimento desde el buscador
     const handleAddFoodFromSearch = (foodItem) => {
-        if (!targetMealId) return;
-
-        setForm((prev) => ({
-            ...prev,
-            meals: prev.meals.map((m) =>
-                m.id === targetMealId
-                    ? { ...m, foods: [...m.foods, { ...foodItem, id: `f-${Date.now()}-${Math.random().toString(36).substring(7)}` }] }
-                    : m
-            )
-        }));
+        setForm((prev) => {
+            const updatedMeals = prev.meals.map((m) => {
+                if (m.id === searchTargetMealId) {
+                    return {
+                        ...m,
+                        foods: [...(m.foods || []), foodItem]
+                    };
+                }
+                return m;
+            });
+            return { ...prev, meals: updatedMeals };
+        });
     };
 
-    const handleRemoveFoodFromMeal = (mealId, foodIndex) => {
-        setForm((prev) => ({
-            ...prev,
-            meals: prev.meals.map((m) =>
-                m.id === mealId
-                    ? { ...m, foods: m.foods.filter((_, idx) => idx !== foodIndex) }
-                    : m
-            )
-        }));
-    };
-
-    const handleDuplicateFood = (mealId, foodIndex) => {
-        setForm((prev) => ({
-            ...prev,
-            meals: prev.meals.map((m) => {
-                if (m.id !== mealId) return m;
-                const copy = { ...m.foods[foodIndex], id: `f-${Date.now()}` };
-                return {
-                    ...m,
-                    foods: [
-                        ...m.foods.slice(0, foodIndex + 1),
-                        copy,
-                        ...m.foods.slice(foodIndex + 1)
-                    ]
-                };
-            })
-        }));
-        showSuccess('Alimento duplicado.');
-    };
-
-    const handleMoveFood = (mealId, foodIndex, direction) => {
-        setForm((prev) => ({
-            ...prev,
-            meals: prev.meals.map((m) => {
-                if (m.id !== mealId) return m;
-                const list = [...m.foods];
-                if (direction === 'up' && foodIndex === 0) return m;
-                if (direction === 'down' && foodIndex === list.length - 1) return m;
-                const swapIdx = direction === 'up' ? foodIndex - 1 : foodIndex + 1;
-                [list[foodIndex], list[swapIdx]] = [list[swapIdx], list[foodIndex]];
-                return { ...m, foods: list };
-            })
-        }));
-    };
-
-    const handleUpdateFoodQty = (mealId, foodIndex, newQty) => {
-        const qtyNum = Number(newQty) || 0;
-        setForm((prev) => ({
-            ...prev,
-            meals: prev.meals.map((m) => {
-                if (m.id !== mealId) return m;
-                const list = [...m.foods];
-                const current = list[foodIndex];
-                const baseQty = Number(current.qty) || 100;
-                const ratio = baseQty > 0 && qtyNum > 0 ? qtyNum / baseQty : 1;
-
-                list[foodIndex] = {
-                    ...current,
-                    qty: String(newQty),
-                    calories: Math.round(Number(current.calories || 0) * ratio),
-                    protein: +(Number(current.protein || 0) * ratio).toFixed(1),
-                    carbohydrates: +(Number(current.carbohydrates || 0) * ratio).toFixed(1),
-                    fat: +(Number(current.fat || 0) * ratio).toFixed(1)
-                };
-                return { ...m, foods: list };
-            })
-        }));
-    };
-
-    // ── Guardado como Plantilla ──
-    const handleSaveAsDietTemplate = () => {
-        if (!form.name.trim()) {
-            showError('Ingresa un nombre para la plantilla.');
+    // Agregar alimento manual rápido
+    const handleAddManualFood = () => {
+        if (!manualFood.name.trim()) {
+            showError('Ingresa el nombre del alimento.');
             return;
         }
 
-        saveDietTemplate({
-            name: form.name.trim(),
-            description: `Plantilla basada en ${form.calories} kcal para ${form.target}.`,
-            target: form.target,
-            calories: Number(form.calories) || 2000,
-            duration: Number(form.duration) || 4,
-            macros: {
-                protein: Number(form.proteinPct) || 30,
-                carbs: Number(form.carbsPct) || 45,
-                fat: Number(form.fatPct) || 25
-            },
-            meals: form.meals
+        const newFood = {
+            name: manualFood.name.trim(),
+            qty: String(manualFood.qty || 100),
+            unit: manualFood.unit || 'g',
+            calories: Number(manualFood.calories) || 0,
+            protein: 0,
+            carbohydrates: 0,
+            fat: 0,
+            notes: ''
+        };
+
+        setForm((prev) => {
+            const updatedMeals = prev.meals.map((m) => {
+                if (m.id === activeMealId) {
+                    return { ...m, foods: [...(m.foods || []), newFood] };
+                }
+                return m;
+            });
+            return { ...prev, meals: updatedMeals };
         });
 
-        showSuccess('¡Plan guardado exitosamente en tu biblioteca de plantillas!');
+        setManualFood({ name: '', qty: '100', unit: 'g', calories: '100' });
+        setIsAddingManual(false);
+        showSuccess(`"${newFood.name}" agregado a ${activeMeal?.name}.`);
     };
 
-    // ── Guardar Borrador Manual ──
-    const handleSaveDraft = () => {
-        if (!form.patientId) {
-            showError('Selecciona un paciente antes de guardar un borrador.');
-            return;
+    // Eliminar alimento de una comida
+    const handleRemoveFood = (mealId, foodIndex) => {
+        setForm((prev) => {
+            const updatedMeals = prev.meals.map((m) => {
+                if (m.id === mealId) {
+                    return {
+                        ...m,
+                        foods: m.foods.filter((_, idx) => idx !== foodIndex)
+                    };
+                }
+                return m;
+            });
+            return { ...prev, meals: updatedMeals };
+        });
+    };
+
+    // Validar y avanzar de paso
+    const handleNextStep = () => {
+        if (currentStep === 1) {
+            if (!form.patientId) {
+                showError('Por favor selecciona el paciente para este plan.');
+                return;
+            }
+            if (!form.name.trim()) {
+                showError('Por favor ingresa un nombre para el plan.');
+                return;
+            }
+        } else if (currentStep === 2) {
+            if (!form.calories || Number(form.calories) <= 0) {
+                showError('Ingresa una meta calórica válida (ej: 2000).');
+                return;
+            }
         }
-        localStorage.setItem(`nutritrack_draft_plan_${form.patientId}`, JSON.stringify(form));
-        showSuccess('Borrador guardado localmente. Puedes continuar luego sin perder tus cambios.');
+        setCurrentStep((prev) => Math.min(prev + 1, 4));
     };
 
-    // ── Guardar Plan Final ──
-    const handleSubmit = (e) => {
-        e.preventDefault();
+    const handlePrevStep = () => {
+        setCurrentStep((prev) => Math.max(prev - 1, 1));
+    };
+
+    // Guardar plan definitivo
+    const handleSubmitFinal = (e) => {
+        if (e) e.preventDefault();
 
         if (!form.patientId) {
             showError('Selecciona un paciente.');
-            return;
-        }
-        if (!form.name.trim()) {
-            showError('Ingresa el nombre del plan.');
-            return;
-        }
-        if (!form.calories || Number(form.calories) <= 0) {
-            showError('Ingresa una meta calórica válida mayor a 0.');
-            return;
-        }
-        if (!form.duration || Number(form.duration) <= 0) {
-            showError('Ingresa una duración en semanas válida.');
+            setCurrentStep(1);
             return;
         }
 
-        // Limpiar borrador local al guardar definitivo
-        localStorage.removeItem(`nutritrack_draft_plan_${form.patientId}`);
-
-        onSave({
+        const payload = {
             id: plan?.id || Date.now(),
             patientId: Number(form.patientId),
             name: form.name.trim(),
             target: form.target,
             calories: Number(form.calories),
-            duration: Number(form.duration),
+            duration: Number(form.duration) || 8,
             macros: {
                 protein: Number(form.proteinPct),
                 carbs: Number(form.carbsPct),
@@ -571,859 +377,684 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
             },
             recommendations: form.recommendations,
             meals: form.meals
-        });
+        };
 
+        // Si marcó guardar como plantilla reutilizable
+        if (saveAsTemplate) {
+            const nameToSave = (templateName || form.name || 'Plantilla Clínica').trim();
+            saveDietTemplate({
+                name: nameToSave,
+                description: `Plantilla creada a partir de ${form.name} (${form.calories} kcal)`,
+                target: form.target,
+                calories: Number(form.calories),
+                duration: Number(form.duration) || 8,
+                macros: payload.macros,
+                meals: form.meals
+            });
+            showSuccess(`¡Plantilla "${nameToSave}" guardada para uso futuro!`);
+        }
+
+        onSave(payload);
+        showSuccess('Plan alimenticio guardado correctamente.');
         onClose();
     };
-
-    const targetMealObject = form.meals.find((m) => m.id === targetMealId);
 
     return (
         <>
             <Modal
                 isOpen={isOpen}
                 onClose={onClose}
-                title={mode === 'add' ? '🥗 Crear Nuevo Plan Alimenticio Inteligente' : `🥗 Plan: ${form.name}`}
+                title={mode === 'add' ? '🥗 Asistente de Plan Alimenticio' : `🥗 Plan: ${form.name}`}
                 size="large"
+                closeOnOverlayClick={false}
             >
-                <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1.25rem' }}>
-                    {/* ── 1. Barra de Creación Rápida ── */}
-                    {isEditing && (
-                        <div
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(73, 181, 76, 0.12), rgba(56, 47, 253, 0.08))',
-                                border: '1px solid rgba(73, 181, 76, 0.25)',
-                                borderRadius: 'var(--radius-lg)',
-                                padding: '1rem 1.25rem',
-                                display: 'grid',
-                                gap: '0.75rem'
-                            }}
+                <div className="wizard-container">
+                    {/* Barra de progreso de 4 pasos */}
+                    <nav className="wizard-steps-bar" aria-label="Progreso del asistente">
+                        <button
+                            type="button"
+                            className={`wizard-step-btn ${currentStep === 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}
+                            onClick={() => setCurrentStep(1)}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                    <span style={{ fontSize: '1.4rem' }}>⚡</span>
-                                    <div>
-                                        <strong style={{ fontSize: '0.95rem', color: 'var(--text)', display: 'block' }}>
-                                            CREACIÓN RÁPIDA DE PLANES
-                                        </strong>
-                                        <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>
-                                            Comienza desde cero, parte de una plantilla clínica o copia un plan previo
-                                        </span>
-                                    </div>
-                                </div>
+                            <span className="wizard-step-num">{currentStep > 1 ? '✓' : '1'}</span>
+                            <span>1. Paciente & Base</span>
+                        </button>
 
-                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                    <button
-                                        type="button"
-                                        className={`btn small ${creationMode === 'custom' ? '' : 'secondary'}`}
-                                        onClick={handleStartFromScratch}
-                                        style={{ fontSize: '0.8rem' }}
-                                    >
-                                        <i className="bi bi-pencil-square" /> Desde cero
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`btn small ${creationMode === 'template' ? '' : 'secondary'}`}
-                                        onClick={() => setCreationMode('template')}
-                                        style={{ fontSize: '0.8rem' }}
-                                    >
-                                        <i className="bi bi-journal-bookmark-fill" /> Usar plantilla
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className={`btn small ${creationMode === 'copy' ? '' : 'secondary'}`}
-                                        onClick={() => setCreationMode('copy')}
-                                        style={{ fontSize: '0.8rem' }}
-                                    >
-                                        <i className="bi bi-files" /> Copiar plan
-                                    </button>
-                                </div>
-                            </div>
+                        <button
+                            type="button"
+                            className={`wizard-step-btn ${currentStep === 2 ? 'active' : ''} ${currentStep > 2 ? 'completed' : ''}`}
+                            onClick={() => setCurrentStep(2)}
+                        >
+                            <span className="wizard-step-num">{currentStep > 2 ? '✓' : '2'}</span>
+                            <span>2. Calorías & Macros</span>
+                        </button>
 
-                            {/* Opciones desplegadas según el modo de creación rápida */}
-                            {creationMode === 'template' && (
-                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Seleccionar Plantilla:</span>
+                        <button
+                            type="button"
+                            className={`wizard-step-btn ${currentStep === 3 ? 'active' : ''} ${currentStep > 3 ? 'completed' : ''}`}
+                            onClick={() => setCurrentStep(3)}
+                        >
+                            <span className="wizard-step-num">{currentStep > 3 ? '✓' : '3'}</span>
+                            <span>3. Comidas & Menú</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className={`wizard-step-btn ${currentStep === 4 ? 'active' : ''}`}
+                            onClick={() => setCurrentStep(4)}
+                        >
+                            <span className="wizard-step-num">4</span>
+                            <span>4. Guardar</span>
+                        </button>
+                    </nav>
+
+                    {/* ==============================================================
+                        PASO 1: PACIENTE, OBJETIVO Y PLANTILLAS RÁPIDAS
+                        ============================================================== */}
+                    {currentStep === 1 && (
+                        <div className="wizard-content">
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', alignItems: 'start' }}>
+                                <div className="field">
+                                    <label htmlFor="patient-select">
+                                        <i className="bi bi-person-check-fill" style={{ color: 'var(--primary)', marginRight: '0.35rem' }} />
+                                        Selecciona el Paciente *
+                                    </label>
                                     <select
-                                        value={selectedTemplateId}
-                                        onChange={(e) => handleApplyTemplate(e.target.value)}
-                                        style={{ flex: 1, minWidth: '220px', fontSize: '0.82rem', height: '2.4rem' }}
+                                        id="patient-select"
+                                        value={form.patientId}
+                                        onChange={(e) => handlePatientChange(e.target.value)}
+                                        disabled={!isEditing}
+                                        style={{ fontWeight: 600 }}
                                     >
-                                        <option value="">Elige una plantilla clínica...</option>
-                                        {(dietTemplates || []).map((t) => (
-                                            <option key={t.id} value={t.id}>
-                                                {t.name} ({t.calories} kcal · {t.target})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {creationMode === 'copy' && (
-                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'var(--surface)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Copiar de:</span>
-                                    <select
-                                        value={selectedCopyPlanId}
-                                        onChange={(e) => handleCopyPlan(e.target.value)}
-                                        style={{ flex: 1, minWidth: '220px', fontSize: '0.82rem', height: '2.4rem' }}
-                                    >
-                                        <option value="">Selecciona un plan existente...</option>
-                                        {(plans || []).map((p) => {
-                                            const pat = patients.find((pt) => pt.id === p.patientId);
+                                        <option value="">-- Elige un paciente registrado --</option>
+                                        {patients.map((p) => {
+                                            const code = p.clinicalCode || p.clinical_code || `PAC-${p.id}`;
+                                            const doc = p.documentId || p.document_id;
                                             return (
                                                 <option key={p.id} value={p.id}>
-                                                    {p.name} — Paciente: {pat?.name || 'Paciente'} ({p.calories} kcal)
+                                                    {p.name} ({code}{doc ? ` · CC: ${doc}` : ''})
                                                 </option>
                                             );
                                         })}
                                     </select>
                                 </div>
-                            )}
-                        </div>
-                    )}
 
-                    {/* ── 2. Datos del Paciente (Referencia Visual Real) ── */}
-                    {selectedPatient && (
-                        <div
-                            style={{
-                                background: 'var(--surface-soft)',
-                                border: '1px solid var(--line)',
-                                borderRadius: 'var(--radius-lg)',
-                                padding: '0.85rem 1.15rem',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                flexWrap: 'wrap',
-                                gap: '0.75rem'
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div className="field">
+                                    <label htmlFor="plan-name">
+                                        <i className="bi bi-journal-text" style={{ color: 'var(--primary)', marginRight: '0.35rem' }} />
+                                        Nombre o Título del Plan *
+                                    </label>
+                                    <input
+                                        id="plan-name"
+                                        type="text"
+                                        value={form.name}
+                                        onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                                        placeholder="Ej: Plan de Pérdida de Grasa y Saciedad"
+                                        disabled={!isEditing}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Tarjeta de resumen clínico del paciente si está seleccionado */}
+                            {selectedPatient && (
                                 <div
                                     style={{
-                                        width: '38px',
-                                        height: '38px',
-                                        borderRadius: '50%',
-                                        background: 'var(--primary)',
-                                        color: '#fff',
-                                        display: 'grid',
-                                        placeItems: 'center',
-                                        fontWeight: 800,
-                                        fontSize: '0.95rem'
-                                    }}
-                                >
-                                    {selectedPatient.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                    <strong style={{ fontSize: '0.95rem', color: 'var(--text)', display: 'block' }}>
-                                        {selectedPatient.name}
-                                    </strong>
-                                    <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>
-                                        {selectedPatient.email || 'Sin correo'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.82rem' }}>
-                                <div>
-                                    <span style={{ color: 'var(--muted)', display: 'block', fontSize: '0.7rem' }}>PESO ACTUAL</span>
-                                    <strong>{selectedPatient.weight ? `${selectedPatient.weight} kg` : '—'}</strong>
-                                </div>
-                                <div>
-                                    <span style={{ color: 'var(--muted)', display: 'block', fontSize: '0.7rem' }}>ESTATURA</span>
-                                    <strong>{selectedPatient.height ? `${selectedPatient.height} cm` : '—'}</strong>
-                                </div>
-                                <div>
-                                    <span style={{ color: 'var(--muted)', display: 'block', fontSize: '0.7rem' }}>IMC</span>
-                                    <strong>
-                                        {selectedPatient.weight && selectedPatient.height
-                                            ? (selectedPatient.weight / ((selectedPatient.height / 100) ** 2)).toFixed(1)
-                                            : '—'}
-                                    </strong>
-                                </div>
-                                <div>
-                                    <span style={{ color: 'var(--muted)', display: 'block', fontSize: '0.7rem' }}>OBJETIVO CLÍNICO</span>
-                                    <span className="badge" style={{ background: 'var(--primary-soft)', color: 'var(--primary-strong)', fontWeight: 700 }}>
-                                        {selectedPatient.target || 'Control calórico'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── 3. Información General del Plan ── */}
-                    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', display: 'grid', gap: '1rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            <h4 style={{ margin: 0, fontWeight: 800, fontSize: '1.05rem', color: 'var(--text)' }}>
-                                Parámetros Generales
-                            </h4>
-
-                            {!isEditing && (
-                                <a
-                                    href={generateWhatsAppPlanMessage(selectedPatient?.name, form)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="btn small"
-                                    style={{ background: '#25D366', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', textDecoration: 'none' }}
-                                >
-                                    <i className="bi bi-whatsapp" /> Enviar plan por WhatsApp
-                                </a>
-                            )}
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.85rem' }}>
-                            <div className="field">
-                                <label>Nombre del Plan *</label>
-                                <input
-                                    name="name"
-                                    value={form.name}
-                                    onChange={handleFieldChange}
-                                    placeholder="Ej: Plan Déficit Calórico 1800 kcal"
-                                    required
-                                    disabled={!isEditing}
-                                />
-                            </div>
-
-                            <div className="field">
-                                <label>Paciente Asignado *</label>
-                                {isEditing && mode === 'add' ? (
-                                    <select name="patientId" value={form.patientId} onChange={handleFieldChange} required>
-                                        <option value="">Selecciona un paciente...</option>
-                                        {patients.map((p) => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <input value={selectedPatient?.name || 'Paciente'} disabled />
-                                )}
-                            </div>
-
-                            <div className="field">
-                                <label>Calorías Diarias Meta (kcal) *</label>
-                                <input
-                                    name="calories"
-                                    type="number"
-                                    min="500"
-                                    max="10000"
-                                    value={form.calories}
-                                    onChange={handleFieldChange}
-                                    required
-                                    disabled={!isEditing}
-                                />
-                            </div>
-
-                            <div className="field">
-                                <label>Duración (semanas) *</label>
-                                <input
-                                    name="duration"
-                                    type="number"
-                                    min="1"
-                                    max="52"
-                                    value={form.duration}
-                                    onChange={handleFieldChange}
-                                    required
-                                    disabled={!isEditing}
-                                />
-                            </div>
-
-                            <div className="field">
-                                <label>Objetivo</label>
-                                <select name="target" value={form.target} onChange={handleFieldChange} disabled={!isEditing}>
-                                    <option value="Reducir IMC">Reducir IMC / Pérdida de grasa</option>
-                                    <option value="Control calórico">Control calórico / Mantenimiento</option>
-                                    <option value="Masa muscular">Ganancia de masa muscular</option>
-                                    <option value="Plan deportivo">Rendimiento deportivo</option>
-                                    <option value="Salud digestiva">Salud digestiva / Low FODMAP</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Distribución de Macronutrientes % y g */}
-                        <div style={{ background: 'var(--surface-soft)', padding: '0.85rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)', display: 'grid', gap: '0.65rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text)' }}>
-                                    🎯 Distribución de Macronutrientes Objetivo
-                                </span>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                                    Total: {Number(form.proteinPct) + Number(form.carbsPct) + Number(form.fatPct)}%
-                                </span>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                                <div style={{ background: 'var(--surface)', padding: '0.65rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(22, 163, 74, 0.3)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', marginBottom: '0.3rem' }}>
-                                        <strong style={{ color: '#16a34a' }}>Proteínas</strong>
-                                        <span>{targetMacrosGrams.protein} g</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                        <input
-                                            type="number"
-                                            name="proteinPct"
-                                            value={form.proteinPct}
-                                            onChange={handleFieldChange}
-                                            disabled={!isEditing}
-                                            style={{ height: '2rem', fontSize: '0.85rem', fontWeight: 700 }}
-                                        />
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>%</span>
-                                    </div>
-                                </div>
-
-                                <div style={{ background: 'var(--surface)', padding: '0.65rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(37, 99, 235, 0.3)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', marginBottom: '0.3rem' }}>
-                                        <strong style={{ color: '#2563eb' }}>Carbohidratos</strong>
-                                        <span>{targetMacrosGrams.carbs} g</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                        <input
-                                            type="number"
-                                            name="carbsPct"
-                                            value={form.carbsPct}
-                                            onChange={handleFieldChange}
-                                            disabled={!isEditing}
-                                            style={{ height: '2rem', fontSize: '0.85rem', fontWeight: 700 }}
-                                        />
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>%</span>
-                                    </div>
-                                </div>
-
-                                <div style={{ background: 'var(--surface)', padding: '0.65rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', marginBottom: '0.3rem' }}>
-                                        <strong style={{ color: '#f59e0b' }}>Grasas</strong>
-                                        <span>{targetMacrosGrams.fat} g</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                        <input
-                                            type="number"
-                                            name="fatPct"
-                                            value={form.fatPct}
-                                            onChange={handleFieldChange}
-                                            disabled={!isEditing}
-                                            style={{ height: '2rem', fontSize: '0.85rem', fontWeight: 700 }}
-                                        />
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>%</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── 4. Resumen Nutricional en Tiempo Real (Barras de Progreso) ── */}
-                    <div
-                        style={{
-                            background: 'var(--surface)',
-                            border: '1px solid var(--line)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: '1.25rem',
-                            display: 'grid',
-                            gap: '1rem'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            <div>
-                                <h4 style={{ margin: 0, fontWeight: 800, fontSize: '1.05rem', color: 'var(--text)' }}>
-                                    📊 Balance Nutricional en Tiempo Real
-                                </h4>
-                                <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>
-                                    Suma acumulada de todos los alimentos registrados vs objetivos del plan
-                                </span>
-                            </div>
-
-                            {/* Advertencia visual informativa */}
-                            {liveNutrition.calDiff > 100 && (
-                                <span className="badge" style={{ background: 'var(--warning-soft)', color: '#b45309', fontWeight: 700 }}>
-                                    ⚠️ Excediendo meta calórica (+{liveNutrition.calDiff} kcal)
-                                </span>
-                            )}
-                            {liveNutrition.calDiff < -200 && liveNutrition.calories > 0 && (
-                                <span className="badge" style={{ background: 'var(--primary-soft)', color: 'var(--primary-strong)', fontWeight: 700 }}>
-                                    💡 Faltan {Math.abs(liveNutrition.calDiff)} kcal para la meta
-                                </span>
-                            )}
-                        </div>
-
-                        {/* 4 Barras de Progreso (Calorías, Proteína, Carbos, Grasas) */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                            {/* Calorías */}
-                            <div style={{ background: 'var(--surface-soft)', padding: '0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.35rem' }}>
-                                    <strong>Calorías</strong>
-                                    <span>{liveNutrition.calories} / {form.calories} kcal</span>
-                                </div>
-                                <div style={{ width: '100%', height: '8px', background: 'var(--surface-elevated)', borderRadius: '999px', overflow: 'hidden' }}>
-                                    <div
-                                        style={{
-                                            height: '100%',
-                                            width: `${Math.min(100, liveNutrition.calPct)}%`,
-                                            background: liveNutrition.calPct > 105 ? '#ef4444' : 'var(--primary)',
-                                            transition: 'width 0.3s ease'
-                                        }}
-                                    />
-                                </div>
-                                <span style={{ fontSize: '0.68rem', color: 'var(--muted)', display: 'block', marginTop: '0.25rem', textAlign: 'right' }}>
-                                    {liveNutrition.calPct}% alcanzado
-                                </span>
-                            </div>
-
-                            {/* Proteínas */}
-                            <div style={{ background: 'var(--surface-soft)', padding: '0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.35rem' }}>
-                                    <strong style={{ color: '#16a34a' }}>Proteínas</strong>
-                                    <span>{liveNutrition.protein} / {targetMacrosGrams.protein} g</span>
-                                </div>
-                                <div style={{ width: '100%', height: '8px', background: 'var(--surface-elevated)', borderRadius: '999px', overflow: 'hidden' }}>
-                                    <div
-                                        style={{
-                                            height: '100%',
-                                            width: `${Math.min(100, liveNutrition.pPct)}%`,
-                                            background: '#16a34a',
-                                            transition: 'width 0.3s ease'
-                                        }}
-                                    />
-                                </div>
-                                <span style={{ fontSize: '0.68rem', color: 'var(--muted)', display: 'block', marginTop: '0.25rem', textAlign: 'right' }}>
-                                    {liveNutrition.pPct}% del objetivo
-                                </span>
-                            </div>
-
-                            {/* Carbohidratos */}
-                            <div style={{ background: 'var(--surface-soft)', padding: '0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.35rem' }}>
-                                    <strong style={{ color: '#2563eb' }}>Carbohidratos</strong>
-                                    <span>{liveNutrition.carbohydrates} / {targetMacrosGrams.carbs} g</span>
-                                </div>
-                                <div style={{ width: '100%', height: '8px', background: 'var(--surface-elevated)', borderRadius: '999px', overflow: 'hidden' }}>
-                                    <div
-                                        style={{
-                                            height: '100%',
-                                            width: `${Math.min(100, liveNutrition.cPct)}%`,
-                                            background: '#2563eb',
-                                            transition: 'width 0.3s ease'
-                                        }}
-                                    />
-                                </div>
-                                <span style={{ fontSize: '0.68rem', color: 'var(--muted)', display: 'block', marginTop: '0.25rem', textAlign: 'right' }}>
-                                    {liveNutrition.cPct}% del objetivo
-                                </span>
-                            </div>
-
-                            {/* Grasas */}
-                            <div style={{ background: 'var(--surface-soft)', padding: '0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.35rem' }}>
-                                    <strong style={{ color: '#f59e0b' }}>Grasas</strong>
-                                    <span>{liveNutrition.fat} / {targetMacrosGrams.fat} g</span>
-                                </div>
-                                <div style={{ width: '100%', height: '8px', background: 'var(--surface-elevated)', borderRadius: '999px', overflow: 'hidden' }}>
-                                    <div
-                                        style={{
-                                            height: '100%',
-                                            width: `${Math.min(100, liveNutrition.fPct)}%`,
-                                            background: '#f59e0b',
-                                            transition: 'width 0.3s ease'
-                                        }}
-                                    />
-                                </div>
-                                <span style={{ fontSize: '0.68rem', color: 'var(--muted)', display: 'block', marginTop: '0.25rem', textAlign: 'right' }}>
-                                    {liveNutrition.fPct}% del objetivo
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── 5. Estructura Dinámica de Comidas (Acordeones Plegables) ── */}
-                    <div style={{ display: 'grid', gap: '0.75rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            <div>
-                                <h4 style={{ margin: 0, fontWeight: 800, fontSize: '1.05rem', color: 'var(--text)' }}>
-                                    🍳 Estructura de Comidas y Tiempos
-                                </h4>
-                                <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>
-                                    {form.meals.length} tiempos configurados. Personaliza alimentos, horarios y porciones.
-                                </span>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <button
-                                    type="button"
-                                    className="btn ghost small"
-                                    onClick={handleDistributeCalories}
-                                    title="Calcular metas calóricas proporcionales para cada comida"
-                                    style={{ fontSize: '0.76rem', border: '1px solid var(--line)' }}
-                                >
-                                    ⚡ Distribuir automáticamente
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn ghost small"
-                                    onClick={expandAllMeals}
-                                    style={{ fontSize: '0.76rem' }}
-                                >
-                                    Desplegar todo
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn ghost small"
-                                    onClick={collapseAllMeals}
-                                    style={{ fontSize: '0.76rem' }}
-                                >
-                                    Plegar
-                                </button>
-                                {isEditing && (
-                                    <button
-                                        type="button"
-                                        className="btn small"
-                                        onClick={() => setIsAddingMeal(true)}
-                                        style={{ background: 'var(--primary)', border: 'none', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                                    >
-                                        <i className="bi bi-plus-circle" /> Agregar tiempo
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Formulario flotante para agregar nuevo tiempo de comida */}
-                        {isAddingMeal && (
-                            <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--surface-soft)', padding: '0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--primary)', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>Nuevo tiempo:</span>
-                                <input
-                                    type="text"
-                                    value={newMealName}
-                                    onChange={(e) => setNewMealName(e.target.value)}
-                                    placeholder="Ej: Pre-entreno, Colación nocturna, Merienda 2..."
-                                    style={{ flex: 1, minWidth: '180px', height: '2.2rem', fontSize: '0.85rem' }}
-                                    autoFocus
-                                />
-                                <button type="button" className="btn small" onClick={handleAddMealTime} style={{ background: 'var(--primary)', border: 'none' }}>
-                                    Guardar
-                                </button>
-                                <button type="button" className="btn secondary small" onClick={() => setIsAddingMeal(false)}>
-                                    Cancelar
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Acordeones de cada Comida */}
-                        {form.meals.map((meal, mealIdx) => {
-                            const isOpenAccordion = !!openMeals[meal.id];
-                            const mealTotalCal = (meal.foods || []).reduce((sum, f) => sum + (Number(f.calories) || 0), 0);
-                            const mealTargetCal = Math.round((Number(form.calories) * (Number(meal.targetPct) || 0)) / 100);
-
-                            return (
-                                <div
-                                    key={meal.id}
-                                    style={{
+                                        background: 'var(--surface-soft)',
                                         border: '1px solid var(--line)',
-                                        borderRadius: 'var(--radius-lg)',
-                                        background: 'var(--surface)',
-                                        overflow: 'hidden',
-                                        transition: 'all 0.2s ease'
+                                        borderRadius: 'var(--radius)',
+                                        padding: '0.75rem 1rem',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        flexWrap: 'wrap',
+                                        gap: '0.75rem'
                                     }}
                                 >
-                                    {/* Cabecera del Acordeón */}
-                                    <div
-                                        onClick={() => toggleMealAccordion(meal.id)}
-                                        style={{
-                                            padding: '0.85rem 1.15rem',
-                                            background: isOpenAccordion ? 'var(--surface-soft)' : 'var(--surface)',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            cursor: 'pointer',
-                                            borderBottom: isOpenAccordion ? '1px solid var(--line)' : 'none',
-                                            gap: '0.75rem',
-                                            flexWrap: 'wrap'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            <i
-                                                className={`bi ${isOpenAccordion ? 'bi-chevron-down' : 'bi-chevron-right'}`}
-                                                style={{ fontSize: '0.85rem', color: 'var(--muted)' }}
-                                            />
-                                            <div
-                                                style={{
-                                                    width: '30px',
-                                                    height: '30px',
-                                                    borderRadius: '50%',
-                                                    background: `${meal.color || '#49b54c'}18`,
-                                                    color: meal.color || '#49b54c',
-                                                    display: 'grid',
-                                                    placeItems: 'center',
-                                                    fontSize: '0.9rem'
-                                                }}
-                                            >
-                                                <i className={`bi ${meal.icon || 'bi-egg-fried'}`} />
-                                            </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary-soft)', color: 'var(--primary-strong)', display: 'grid', placeItems: 'center', fontWeight: 700 }}>
+                                            <i className="bi bi-person-heart" />
+                                        </div>
+                                        <div>
+                                            <strong style={{ fontSize: '0.9rem', color: 'var(--text)', display: 'block' }}>{selectedPatient.name}</strong>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                                                {selectedPatient.clinicalCode || selectedPatient.clinical_code || `PAC-${selectedPatient.id}`}
+                                                {selectedPatient.documentId || selectedPatient.document_id ? ` · CC: ${selectedPatient.documentId || selectedPatient.document_id}` : ''}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                            {/* Nombre y Horario editables en click */}
-                                            {isEditing ? (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={(e) => e.stopPropagation()}>
-                                                    <input
-                                                        type="text"
-                                                        value={meal.name}
-                                                        onChange={(e) => handleUpdateMealField(meal.id, 'name', e.target.value)}
-                                                        style={{ fontWeight: 800, fontSize: '0.92rem', height: '2rem', padding: '0.2rem 0.5rem', width: '150px' }}
-                                                    />
-                                                    <input
-                                                        type="time"
-                                                        value={meal.time}
-                                                        onChange={(e) => handleUpdateMealField(meal.id, 'time', e.target.value)}
-                                                        style={{ fontSize: '0.8rem', height: '2rem', padding: '0.2rem 0.4rem', width: '90px' }}
-                                                    />
+                                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                                        {selectedPatient.weight && <span><strong>Peso:</strong> {selectedPatient.weight} kg</span>}
+                                        {selectedPatient.height && <span><strong>Talla:</strong> {selectedPatient.height} cm</span>}
+                                        {selectedPatient.bmi && <span><strong>IMC:</strong> {selectedPatient.bmi}</span>}
+                                        <span><strong>Objetivo:</strong> <span style={{ color: 'var(--primary-strong)', fontWeight: 600 }}>{selectedPatient.target || selectedPatient.goal || 'General'}</span></span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                                <div className="field">
+                                    <label htmlFor="plan-target">Objetivo Nutricional</label>
+                                    <select
+                                        id="plan-target"
+                                        value={form.target}
+                                        onChange={(e) => setForm((p) => ({ ...p, target: e.target.value }))}
+                                        disabled={!isEditing}
+                                    >
+                                        <option value="Reducir IMC">Reducir IMC / Pérdida de Grasa</option>
+                                        <option value="Control calórico">Control calórico / Mantenimiento</option>
+                                        <option value="Masa muscular">Masa muscular / Hipertrofia</option>
+                                        <option value="Plan deportivo">Plan deportivo / Rendimiento</option>
+                                    </select>
+                                </div>
+
+                                <div className="field">
+                                    <label htmlFor="plan-duration">Duración del Plan</label>
+                                    <select
+                                        id="plan-duration"
+                                        value={form.duration}
+                                        onChange={(e) => setForm((p) => ({ ...p, duration: e.target.value }))}
+                                        disabled={!isEditing}
+                                    >
+                                        <option value="4">4 semanas (1 mes)</option>
+                                        <option value="6">6 semanas</option>
+                                        <option value="8">8 semanas (2 meses)</option>
+                                        <option value="12">12 semanas (3 meses)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Sección de plantillas predeterminadas de 1 clic */}
+                            {isEditing && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                        <strong style={{ fontSize: '0.88rem', color: 'var(--text)' }}>
+                                            <i className="bi bi-magic" style={{ color: 'var(--primary)', marginRight: '0.35rem' }} />
+                                            ¿Deseas iniciar con una plantilla clínica predeterminada?
+                                        </strong>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>1 clic para precargar alimentos y macros</span>
+                                    </div>
+
+                                    <div className="preset-templates-grid">
+                                        {allTemplates.slice(0, 4).map((tpl) => (
+                                            <button
+                                                key={tpl.id}
+                                                type="button"
+                                                className="preset-card"
+                                                onClick={() => handleApplyTemplate(tpl)}
+                                                title={`Cargar ${tpl.name}`}
+                                            >
+                                                <div className="preset-card-title">
+                                                    <i className="bi bi-bookmark-check-fill" style={{ color: 'var(--primary)' }} />
+                                                    <span>{tpl.name.split('(')[0].trim()}</span>
                                                 </div>
-                                            ) : (
-                                                <div>
-                                                    <strong style={{ fontSize: '0.92rem', color: 'var(--text)' }}>
-                                                        {meal.name}
-                                                    </strong>
-                                                    <span style={{ fontSize: '0.74rem', color: 'var(--muted)', marginLeft: '0.4rem' }}>
-                                                        ({meal.time})
-                                                    </span>
-                                                </div>
-                                            )}
+                                                <span className="preset-card-kcal">🔥 {tpl.calories} kcal · {tpl.duration || 8} sem</span>
+                                                <span className="preset-card-desc">{tpl.description || 'Plan balanceado preconfigurado listo para personalizar.'}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ==============================================================
+                        PASO 2: METAS CALÓRICAS Y DISTRIBUCIÓN DE MACROS
+                        ============================================================== */}
+                    {currentStep === 2 && (
+                        <div className="wizard-content">
+                            <div style={{ background: 'var(--surface-soft)', padding: '1rem 1.25rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)' }}>
+                                <div className="field" style={{ maxWidth: '360px' }}>
+                                    <label htmlFor="daily-calories">
+                                        <i className="bi bi-fire" style={{ color: '#f59e0b', marginRight: '0.35rem' }} />
+                                        Meta Calórica Diaria (kcal) *
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                        <input
+                                            id="daily-calories"
+                                            type="number"
+                                            step="50"
+                                            min="800"
+                                            max="6000"
+                                            value={form.calories}
+                                            onChange={(e) => setForm((p) => ({ ...p, calories: e.target.value }))}
+                                            disabled={!isEditing}
+                                            style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-strong)' }}
+                                        />
+                                        <span style={{ fontWeight: 700, color: 'var(--muted)' }}>kcal / día</span>
+                                    </div>
+                                </div>
+
+                                {/* Botones rápidos de kcal habituales */}
+                                {isEditing && (
+                                    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.65rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '0.74rem', color: 'var(--muted)', marginRight: '0.25rem' }}>Metas sugeridas:</span>
+                                        {['1500', '1800', '2000', '2200', '2500'].map((kcal) => (
+                                            <button
+                                                key={kcal}
+                                                type="button"
+                                                className="btn secondary small"
+                                                onClick={() => setForm((p) => ({ ...p, calories: kcal }))}
+                                                style={{ padding: '0.2rem 0.55rem', fontSize: '0.75rem' }}
+                                            >
+                                                {kcal} kcal
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Selector de Proporción de Macronutrientes */}
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                    <strong style={{ fontSize: '0.88rem', color: 'var(--text)' }}>
+                                        <i className="bi bi-pie-chart-fill" style={{ color: 'var(--primary)', marginRight: '0.35rem' }} />
+                                        Distribución de Macronutrientes (% del total)
+                                    </strong>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: calculatedMacros.totalPct === 100 ? 'var(--primary)' : 'var(--danger)' }}>
+                                        Total: {calculatedMacros.totalPct}% {calculatedMacros.totalPct !== 100 && '(Debe sumar 100%)'}
+                                    </span>
+                                </div>
+
+                                {isEditing && (
+                                    <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.85rem', flexWrap: 'wrap' }}>
+                                        {MACRO_PRESETS.map((mp) => (
+                                            <button
+                                                key={mp.label}
+                                                type="button"
+                                                className="btn ghost small"
+                                                onClick={() => setForm((p) => ({ ...p, carbsPct: mp.carbs, proteinPct: mp.protein, fatPct: mp.fat }))}
+                                                style={{ border: '1px solid var(--line)', fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                                            >
+                                                {mp.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Grid de sliders / inputs con cálculo automático de gramos */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                                    {/* Proteínas */}
+                                    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '0.85rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                            <span style={{ fontWeight: 700, color: '#16a34a', fontSize: '0.85rem' }}>🍗 Proteína</span>
+                                            <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{form.proteinPct}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="10"
+                                            max="60"
+                                            step="5"
+                                            value={form.proteinPct}
+                                            onChange={(e) => setForm((p) => ({ ...p, proteinPct: Number(e.target.value) }))}
+                                            disabled={!isEditing}
+                                            style={{ width: '100%', accentColor: '#16a34a' }}
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                                            <span>Equivale a:</span>
+                                            <strong style={{ color: 'var(--text)' }}>{calculatedMacros.proteinGrams} g / día</strong>
+                                        </div>
+                                    </div>
+
+                                    {/* Carbohidratos */}
+                                    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '0.85rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                            <span style={{ fontWeight: 700, color: '#2563eb', fontSize: '0.85rem' }}>🌾 Carbohidratos</span>
+                                            <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{form.carbsPct}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="5"
+                                            max="75"
+                                            step="5"
+                                            value={form.carbsPct}
+                                            onChange={(e) => setForm((p) => ({ ...p, carbsPct: Number(e.target.value) }))}
+                                            disabled={!isEditing}
+                                            style={{ width: '100%', accentColor: '#2563eb' }}
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                                            <span>Equivale a:</span>
+                                            <strong style={{ color: 'var(--text)' }}>{calculatedMacros.carbsGrams} g / día</strong>
+                                        </div>
+                                    </div>
+
+                                    {/* Grasas */}
+                                    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '0.85rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                            <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.85rem' }}>🥑 Grasas Saludables</span>
+                                            <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{form.fatPct}%</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="10"
+                                            max="70"
+                                            step="5"
+                                            value={form.fatPct}
+                                            onChange={(e) => setForm((p) => ({ ...p, fatPct: Number(e.target.value) }))}
+                                            disabled={!isEditing}
+                                            style={{ width: '100%', accentColor: '#f59e0b' }}
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                                            <span>Equivale a:</span>
+                                            <strong style={{ color: 'var(--text)' }}>{calculatedMacros.fatGrams} g / día</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ==============================================================
+                        PASO 3: DISTRIBUCIÓN DE COMIDAS Y ALIMENTOS
+                        ============================================================== */}
+                    {currentStep === 3 && (
+                        <div className="wizard-content">
+                            {/* Pestañas de Comidas */}
+                            <div className="meal-tabs-bar">
+                                {form.meals.map((meal) => {
+                                    const count = (meal.foods || []).length;
+                                    const mealKcal = (meal.foods || []).reduce((acc, f) => acc + (Number(f.calories) || 0), 0);
+                                    return (
+                                        <button
+                                            key={meal.id}
+                                            type="button"
+                                            className={`meal-tab-btn ${activeMealId === meal.id ? 'active' : ''}`}
+                                            onClick={() => setActiveMealId(meal.id)}
+                                        >
+                                            <i className={`bi ${meal.icon || 'bi-clock'}`} style={{ color: meal.color || 'var(--primary)' }} />
+                                            <span>{meal.name}</span>
+                                            {count > 0 && <span className="meal-tab-badge">{mealKcal} kcal</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Contenido de la Comida Activa */}
+                            {activeMeal && (
+                                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-soft)', padding: '0.65rem 1rem', borderRadius: 'var(--radius)', border: '1px solid var(--line)', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <strong style={{ fontSize: '0.95rem', color: 'var(--text)' }}>{activeMeal.name}</strong>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                                                <i className="bi bi-clock" />
+                                                <input
+                                                    type="time"
+                                                    value={activeMeal.time || '12:00'}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setForm((prev) => ({
+                                                            ...prev,
+                                                            meals: prev.meals.map((m) => m.id === activeMeal.id ? { ...m, time: val } : m)
+                                                        }));
+                                                    }}
+                                                    disabled={!isEditing}
+                                                    style={{ border: '1px solid var(--line)', borderRadius: '4px', padding: '0.15rem 0.4rem', fontSize: '0.78rem' }}
+                                                />
+                                            </div>
                                         </div>
 
-                                        {/* Metas y Acciones de Comida */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }} onClick={(e) => e.stopPropagation()}>
-                                            <div style={{ textAlign: 'right', fontSize: '0.8rem' }}>
-                                                <strong>{mealTotalCal}</strong>
-                                                <span style={{ color: 'var(--muted)', fontSize: '0.72rem' }}> / {mealTargetCal} kcal</span>
-                                            </div>
-
+                                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                                                Aporte actual: <strong style={{ color: 'var(--primary-strong)', fontSize: '0.9rem' }}>{activeMealKcal} kcal</strong>
+                                            </span>
                                             {isEditing && (
-                                                <div style={{ display: 'flex', gap: '0.2rem' }}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleMoveMeal(mealIdx, 'up')}
-                                                        disabled={mealIdx === 0}
-                                                        title="Mover arriba"
-                                                        style={{ border: 'none', background: 'none', color: mealIdx === 0 ? '#cbd5e1' : 'var(--muted)', cursor: 'pointer', padding: '0.2rem' }}
-                                                    >
-                                                        <i className="bi bi-arrow-up" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleMoveMeal(mealIdx, 'down')}
-                                                        disabled={mealIdx === form.meals.length - 1}
-                                                        title="Mover abajo"
-                                                        style={{ border: 'none', background: 'none', color: mealIdx === form.meals.length - 1 ? '#cbd5e1' : 'var(--muted)', cursor: 'pointer', padding: '0.2rem' }}
-                                                    >
-                                                        <i className="bi bi-arrow-down" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveMeal(meal.id)}
-                                                        title="Eliminar comida"
-                                                        style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.2rem' }}
-                                                    >
-                                                        <i className="bi bi-trash" />
-                                                    </button>
-                                                </div>
+                                                <button
+                                                    type="button"
+                                                    className="btn primary small"
+                                                    onClick={() => {
+                                                        setSearchTargetMealId(activeMeal.id);
+                                                        setIsSearchOpen(true);
+                                                    }}
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem' }}
+                                                >
+                                                    <i className="bi bi-search" /> Buscar alimento en biblioteca
+                                                </button>
                                             )}
                                         </div>
                                     </div>
 
-                                    {/* Contenido Desplegado del Acordeón */}
-                                    {isOpenAccordion && (
-                                        <div style={{ padding: '1rem 1.25rem', display: 'grid', gap: '0.85rem' }}>
-                                            {/* Lista de alimentos agregados a esta comida */}
-                                            {meal.foods && meal.foods.length > 0 ? (
-                                                <div style={{ display: 'grid', gap: '0.45rem' }}>
-                                                    {meal.foods.map((food, fIdx) => (
-                                                        <div
-                                                            key={food.id || fIdx}
-                                                            style={{
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                alignItems: 'center',
-                                                                padding: '0.55rem 0.85rem',
-                                                                borderRadius: 'var(--radius)',
-                                                                border: '1px solid var(--line)',
-                                                                background: 'var(--surface-soft)',
-                                                                gap: '0.75rem',
-                                                                flexWrap: 'wrap'
+                                    {/* Lista de alimentos configurados en esta comida */}
+                                    <div style={{ display: 'grid', gap: '0.45rem', maxHeight: '280px', overflowY: 'auto' }}>
+                                        {(activeMeal.foods || []).length > 0 ? (
+                                            activeMeal.foods.map((food, fIdx) => (
+                                                <div key={`${food.name}-${fIdx}`} className="food-item-clean-row">
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: 0 }}>
+                                                        <span style={{ fontSize: '1.2rem' }}>🥗</span>
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <strong style={{ fontSize: '0.86rem', color: 'var(--text)', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                                                {food.name}
+                                                            </strong>
+                                                            <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>
+                                                                Porción: {food.qty} {food.unit} {food.notes ? ` · (${food.notes})` : ''}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--primary-strong)' }}>
+                                                            {food.calories} kcal
+                                                        </span>
+                                                        {isEditing && (
+                                                            <button
+                                                                type="button"
+                                                                className="btn ghost small"
+                                                                onClick={() => handleRemoveFood(activeMeal.id, fIdx)}
+                                                                title="Eliminar de esta comida"
+                                                                style={{ color: 'var(--danger)', padding: '0.2rem 0.45rem' }}
+                                                            >
+                                                                <i className="bi bi-trash" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div style={{ textAlign: 'center', padding: '1.5rem', border: '1px dashed var(--line)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
+                                                <i className="bi bi-basket" style={{ fontSize: '1.8rem', color: 'var(--muted)', display: 'block', marginBottom: '0.35rem' }} />
+                                                <span style={{ fontSize: '0.82rem', color: 'var(--muted)', display: 'block' }}>
+                                                    Aún no has agregado alimentos a {activeMeal.name}.
+                                                </span>
+                                                {isEditing && (
+                                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.65rem' }}>
+                                                        <button
+                                                            type="button"
+                                                            className="btn secondary small"
+                                                            onClick={() => {
+                                                                setSearchTargetMealId(activeMeal.id);
+                                                                setIsSearchOpen(true);
                                                             }}
                                                         >
-                                                            <div style={{ flex: 1, minWidth: '180px' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                                    <strong style={{ fontSize: '0.88rem', color: 'var(--text)' }}>
-                                                                        {food.name}
-                                                                    </strong>
-                                                                    {food.brand && (
-                                                                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontStyle: 'italic' }}>
-                                                                            ({food.brand})
-                                                                        </span>
-                                                                    )}
-                                                                </div>
+                                                            <i className="bi bi-search" /> Abrir biblioteca
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="btn ghost small"
+                                                            onClick={() => setIsAddingManual(true)}
+                                                        >
+                                                            <i className="bi bi-pencil" /> Agregar manual
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
 
-                                                                {food.notes && (
-                                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontStyle: 'italic', marginTop: '0.1rem' }}>
-                                                                        📝 {food.notes}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Cantidad y Calorías */}
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                                {isEditing ? (
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                                        <input
-                                                                            type="number"
-                                                                            value={food.qty}
-                                                                            onChange={(e) => handleUpdateFoodQty(meal.id, fIdx, e.target.value)}
-                                                                            style={{ width: '70px', height: '1.9rem', fontSize: '0.82rem', padding: '0.2rem 0.4rem', fontWeight: 700 }}
-                                                                        />
-                                                                        <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>
-                                                                            {food.unit}
-                                                                        </span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                                                                        {food.qty} {food.unit}
-                                                                    </span>
-                                                                )}
-
-                                                                <span className="badge" style={{ background: 'var(--primary-soft)', color: 'var(--primary-strong)', fontWeight: 700, fontSize: '0.76rem' }}>
-                                                                    {food.calories} kcal
-                                                                </span>
-
-                                                                {isEditing && (
-                                                                    <div style={{ display: 'flex', gap: '0.15rem' }}>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleDuplicateFood(meal.id, fIdx)}
-                                                                            title="Duplicar"
-                                                                            style={{ border: 'none', background: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.15rem' }}
-                                                                        >
-                                                                            <i className="bi bi-files" />
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleRemoveFoodFromMeal(meal.id, fIdx)}
-                                                                            title="Eliminar"
-                                                                            style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.15rem' }}
-                                                                        >
-                                                                            <i className="bi bi-trash" />
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p style={{ margin: '0.5rem 0', color: 'var(--muted)', fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center' }}>
-                                                    Sin alimentos todavía en {meal.name}. Usa el buscador o la biblioteca para agregar alimentos reales.
-                                                </p>
-                                            )}
-
-                                            {/* Botones de acción dentro de la comida */}
-                                            {isEditing && (
-                                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', borderTop: '1px dashed var(--line)', paddingTop: '0.65rem' }}>
-                                                    <button
-                                                        type="button"
-                                                        className="btn small"
-                                                        onClick={() => openFoodSearch(meal.id)}
-                                                        style={{ background: 'var(--primary)', border: 'none', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                                                    >
-                                                        <i className="bi bi-search" /> Buscar en Biblioteca / API
-                                                    </button>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Nota u horario específico para esta comida..."
-                                                        value={meal.notes || ''}
-                                                        onChange={(e) => handleUpdateMealField(meal.id, 'notes', e.target.value)}
-                                                        style={{ flex: 1, minWidth: '220px', height: '2.1rem', fontSize: '0.78rem' }}
-                                                    />
-                                                </div>
-                                            )}
+                                    {/* Formulario desplegable para agregar alimento manual */}
+                                    {isAddingManual && isEditing && (
+                                        <div style={{ background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 'var(--radius)', padding: '0.75rem', display: 'grid', gap: '0.5rem', animation: 'fadeIn 0.15s ease' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <strong style={{ fontSize: '0.82rem', color: 'var(--primary-strong)' }}>Añadir alimento manual rápido</strong>
+                                                <button type="button" onClick={() => setIsAddingManual(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+                                                    <i className="bi bi-x-lg" />
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '0.45rem' }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Nombre del alimento"
+                                                    value={manualFood.name}
+                                                    onChange={(e) => setManualFood((p) => ({ ...p, name: e.target.value }))}
+                                                    style={{ fontSize: '0.82rem' }}
+                                                    autoFocus
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Cantidad"
+                                                    value={manualFood.qty}
+                                                    onChange={(e) => setManualFood((p) => ({ ...p, qty: e.target.value }))}
+                                                    style={{ fontSize: '0.82rem' }}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Unidad (g, ml)"
+                                                    value={manualFood.unit}
+                                                    onChange={(e) => setManualFood((p) => ({ ...p, unit: e.target.value }))}
+                                                    style={{ fontSize: '0.82rem' }}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Calorías"
+                                                    value={manualFood.calories}
+                                                    onChange={(e) => setManualFood((p) => ({ ...p, calories: e.target.value }))}
+                                                    style={{ fontSize: '0.82rem' }}
+                                                />
+                                            </div>
+                                            <button type="button" className="btn small" onClick={handleAddManualFood} style={{ background: 'var(--primary)', border: 'none' }}>
+                                                Guardar en {activeMeal.name}
+                                            </button>
                                         </div>
                                     )}
                                 </div>
-                            );
-                        })}
-                    </div>
+                            )}
 
-                    {/* ── 6. Recomendaciones Generales del Plan ── */}
-                    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', padding: '1.25rem', display: 'grid', gap: '0.65rem' }}>
-                        <h4 style={{ margin: 0, fontWeight: 800, fontSize: '1.05rem', color: 'var(--text)' }}>
-                            📝 Recomendaciones Generales para el Paciente
-                        </h4>
-                        <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>
-                            Instrucciones sobre hidratación, preparación de alimentos, suplementación o descansos.
-                        </span>
-                        <textarea
-                            name="recommendations"
-                            rows="4"
-                            value={form.recommendations}
-                            onChange={handleFieldChange}
-                            disabled={!isEditing}
-                            placeholder="Escribe aquí las pautas generales del tratamiento nutricional..."
-                            style={{ width: '100%', fontSize: '0.85rem', lineHeight: '1.4' }}
-                        />
-                    </div>
-
-                    {/* ── 7. Barra de Acciones y Guardado ── */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            borderTop: '1px solid var(--line)',
-                            paddingTop: '1rem',
-                            flexWrap: 'wrap',
-                            gap: '0.75rem'
-                        }}
-                    >
-                        {isEditing && (
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                <button
-                                    type="button"
-                                    className="btn secondary small"
-                                    onClick={handleSaveAsDietTemplate}
-                                    title="Guardar como nueva plantilla en tu biblioteca"
-                                    style={{ fontSize: '0.8rem' }}
-                                >
-                                    <i className="bi bi-bookmark-star" /> Guardar como plantilla
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn secondary small"
-                                    onClick={handleSaveDraft}
-                                    title="Guardar avance temporalmente sin cerrar"
-                                    style={{ fontSize: '0.8rem' }}
-                                >
-                                    <i className="bi bi-save2" /> Guardar borrador
-                                </button>
+                            {/* Resumen inferior del paso 3 */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-soft)', padding: '0.55rem 0.85rem', borderRadius: 'var(--radius-sm)', fontSize: '0.78rem', color: 'var(--text)' }}>
+                                <span>Total Alimentos en el Plan: <strong>{planStats.totalFoods}</strong></span>
+                                <span>Calorías acumuladas: <strong style={{ color: 'var(--primary-strong)' }}>{planStats.totalCalories} kcal</strong> / Meta: <strong>{form.calories} kcal</strong></span>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
-                            <button type="button" className="btn secondary" onClick={onClose}>
-                                {isEditing ? 'Cancelar' : 'Cerrar'}
-                            </button>
+                    {/* ==============================================================
+                        PASO 4: RECOMENDACIONES, GUARDAR COMO PLANTILLA Y FINALIZAR
+                        ============================================================== */}
+                    {currentStep === 4 && (
+                        <div className="wizard-content">
+                            {/* Resumen Ejecutivo del Plan */}
+                            <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '1rem', display: 'grid', gap: '0.65rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text)', fontWeight: 800 }}>{form.name}</h4>
+                                        <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                                            Paciente: <strong>{selectedPatient?.name || 'No asignado'}</strong> · Duración: <strong>{form.duration} semanas</strong>
+                                        </span>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-strong)' }}>{form.calories} kcal</span>
+                                        <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--muted)' }}>Meta diaria recomendada</span>
+                                    </div>
+                                </div>
 
-                            {isEditing ? (
-                                <button
-                                    type="submit"
-                                    className="btn"
-                                    style={{ background: 'var(--primary)', border: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                                >
-                                    <i className="bi bi-check-circle-fill" /> Guardar Plan Alimenticio
+                                <div style={{ display: 'flex', gap: '1rem', borderTop: '1px dashed var(--line)', paddingTop: '0.5rem', fontSize: '0.78rem', flexWrap: 'wrap' }}>
+                                    <span>🎯 <strong>Objetivo:</strong> {form.target}</span>
+                                    <span>🥗 <strong>Total alimentos:</strong> {planStats.totalFoods} ítems</span>
+                                    <span>🍗 <strong>Prot:</strong> {calculatedMacros.proteinGrams}g ({form.proteinPct}%)</span>
+                                    <span>🌾 <strong>Carbs:</strong> {calculatedMacros.carbsGrams}g ({form.carbsPct}%)</span>
+                                    <span>🥑 <strong>Grasas:</strong> {calculatedMacros.fatGrams}g ({form.fatPct}%)</span>
+                                </div>
+                            </div>
+
+                            {/* Recomendaciones Generales */}
+                            <div className="field">
+                                <label htmlFor="recommendations">
+                                    <i className="bi bi-chat-heart" style={{ color: 'var(--primary)', marginRight: '0.35rem' }} />
+                                    Recomendaciones Clínicas y Hábitos de Hidratación
+                                </label>
+                                <textarea
+                                    id="recommendations"
+                                    rows="4"
+                                    value={form.recommendations}
+                                    onChange={(e) => setForm((p) => ({ ...p, recommendations: e.target.value }))}
+                                    disabled={!isEditing}
+                                    style={{ fontSize: '0.82rem', lineHeight: 1.4 }}
+                                />
+                            </div>
+
+                            {/* Opción para guardar como plantilla reutilizable */}
+                            {isEditing && (
+                                <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '0.85rem 1rem', display: 'grid', gap: '0.5rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', margin: 0, fontWeight: 700, fontSize: '0.86rem', color: 'var(--text)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={saveAsTemplate}
+                                            onChange={(e) => {
+                                                setSaveAsTemplate(e.target.checked);
+                                                if (e.target.checked && !templateName) {
+                                                    setTemplateName(form.name);
+                                                }
+                                            }}
+                                            style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
+                                        />
+                                        <span>💾 Guardar este plan en mis plantillas predeterminadas para otros pacientes</span>
+                                    </label>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)', marginLeft: '1.75rem' }}>
+                                        Te permitirá cargar esta misma estructura con un solo clic en futuros pacientes con objetivos clínicos similares.
+                                    </span>
+
+                                    {saveAsTemplate && (
+                                        <div style={{ marginLeft: '1.75rem', marginTop: '0.35rem' }}>
+                                            <input
+                                                type="text"
+                                                value={templateName}
+                                                onChange={(e) => setTemplateName(e.target.value)}
+                                                placeholder="Nombre de la plantilla (ej: Plan Hipocalórico Estándar 1800 kcal)"
+                                                style={{ fontSize: '0.82rem' }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Navegación del Asistente Wizard (Footer) */}
+                    <footer className="wizard-footer">
+                        <div>
+                            {currentStep > 1 ? (
+                                <button type="button" className="btn secondary" onClick={handlePrevStep}>
+                                    <i className="bi bi-arrow-left" /> Anterior
                                 </button>
                             ) : (
-                                auth?.role === 'nutriologo' && (
+                                <button type="button" className="btn ghost" onClick={onClose}>
+                                    Cancelar
+                                </button>
+                            )}
+                        </div>
+
+                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>
+                            Paso {currentStep} de 4
+                        </span>
+
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {currentStep < 4 ? (
+                                <button type="button" className="btn" onClick={handleNextStep} style={{ background: 'var(--primary)', border: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    Siguiente paso <i className="bi bi-arrow-right" />
+                                </button>
+                            ) : (
+                                isEditing && (
                                     <button
                                         type="button"
                                         className="btn"
-                                        style={{ background: 'var(--primary)', border: 'none' }}
-                                        onClick={() => setIsEditing(true)}
+                                        onClick={handleSubmitFinal}
+                                        style={{ background: 'var(--primary)', border: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                                     >
-                                        <i className="bi bi-pencil" style={{ marginRight: '0.35rem' }} />
-                                        Editar plan
+                                        <i className="bi bi-check-circle-fill" /> Guardar Plan Alimenticio
                                     </button>
                                 )
                             )}
                         </div>
-                    </div>
-                </form>
+                    </footer>
+                </div>
             </Modal>
 
             {/* Modal de búsqueda en biblioteca de alimentos y APIs */}
@@ -1431,7 +1062,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                 isOpen={isSearchOpen}
                 onClose={() => setIsSearchOpen(false)}
                 onSelectFood={handleAddFoodFromSearch}
-                targetMealName={targetMealObject?.name || 'Comida'}
+                targetMealName={form.meals.find((m) => m.id === searchTargetMealId)?.name || 'Comida'}
             />
         </>
     );

@@ -20,37 +20,37 @@ const Modal = ({
             }
         };
 
-        const handleOverlayClick = (event) => {
-            if (closeOnOverlayClick && 
-                modalRef.current && 
-                !modalRef.current.contains(event.target)) {
-                onClose();
-            }
-        };
-
         if (isOpen) {
             document.addEventListener('keydown', handleEscape);
-            document.addEventListener('mousedown', handleOverlayClick);
             document.body.style.overflow = 'hidden';
         }
 
         return () => {
             document.removeEventListener('keydown', handleEscape);
-            document.removeEventListener('mousedown', handleOverlayClick);
             document.body.style.overflow = 'unset';
         };
-    }, [isOpen, onClose, closeOnOverlayClick]);
+    }, [isOpen, onClose]);
 
     if (!isOpen) return null;
 
+    const handleBackdropClick = (e) => {
+        if (closeOnOverlayClick && e.target === e.currentTarget) {
+            onClose();
+        }
+    };
+
     return (
-        <div className={`modal-overlay ${isOpen ? 'open' : ''}`}>
+        <div 
+            className={`modal-overlay ${isOpen ? 'open' : ''}`}
+            onClick={handleBackdropClick}
+        >
             <div 
                 ref={modalRef}
                 className={`modal-content modal-${size} ${className}`}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={title ? 'modal-title' : undefined}
+                onClick={(e) => e.stopPropagation()}
             >
                 {title && (
                     <div className="modal-header">

@@ -152,8 +152,24 @@ function FoodSearchModal({ isOpen, onClose, onSelectFood, targetMealName = "Comi
                 onClose={onClose}
                 title={`🔍 Biblioteca de Alimentos para ${targetMealName}`}
                 size="large"
+                closeOnOverlayClick={false}
             >
                 <div style={{ display: "grid", gap: "1rem" }}>
+                    {/* Botón de retorno rápido */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--line)", paddingBottom: "0.5rem" }}>
+                        <button
+                            type="button"
+                            className="btn ghost small"
+                            onClick={onClose}
+                            style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem", color: "var(--primary-strong)" }}
+                        >
+                            <i className="bi bi-arrow-left" /> Regresar al plan de comidas
+                        </button>
+                        <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
+                            Añadiendo a: <strong>{targetMealName}</strong>
+                        </span>
+                    </div>
+
                     {/* Barra de búsqueda y botón de nuevo alimento */}
                     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                         <div style={{ position: "relative", flex: 1, minWidth: "220px" }}>
