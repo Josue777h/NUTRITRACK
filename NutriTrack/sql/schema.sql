@@ -250,7 +250,24 @@ DECLARE
   ref_nutriologo_id uuid;
   assigned_clinical_code text;
 BEGIN
-  -- Si no es nutriólogo, es un paciente/usuario
+  -- 1. Crear SIEMPRE primero el registro en profiles para que exista el id
+  INSERT INTO public.profiles (id, role, full_name, email, document_id)
+  VALUES (
+    new.id,
+    CASE
+      WHEN new.raw_user_meta_data ->> 'role' = 'nutriologo' THEN 'nutriologo'
+      ELSE 'usuario'
+    END,
+    NULLIF(new.raw_user_meta_data ->> 'full_name', ''),
+    new.email,
+    new.raw_user_meta_data ->> 'document_id'
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET full_name = EXCLUDED.full_name,
+      role = EXCLUDED.role,
+      document_id = COALESCE(EXCLUDED.document_id, profiles.document_id);
+
+  -- 2. Si no es nutriólogo, es un paciente/usuario y vinculamos o creamos su ficha médica
   IF (new.raw_user_meta_data ->> 'role') IS DISTINCT FROM 'nutriologo' THEN
     
     -- Extraer el ID del nutriólogo de los metadatos si vino con enlace de invitación
@@ -262,14 +279,14 @@ BEGIN
       END;
     END IF;
 
-    -- 1. Intentar vincular con una ficha existente por correo electrónico
+    -- Intentar vincular con una ficha existente por correo electrónico
     UPDATE public.patients
        SET user_id = new.id,
            nutriologo_id = COALESCE(patients.nutriologo_id, ref_nutriologo_id)
      WHERE user_id IS NULL
        AND lower(email) = lower(new.email);
 
-    -- 2. Si no existía ficha creada por el nutriólogo, crear una nueva vinculada
+    -- Si no existía ficha creada por el nutriólogo, crear una nueva vinculada
     IF NOT FOUND THEN
       assigned_clinical_code := COALESCE(new.raw_user_meta_data ->> 'clinical_code', 'PAC-' || LPAD(FLOOR(RANDOM() * 100000)::text, 5, '0'));
       INSERT INTO public.patients (
@@ -293,23 +310,6 @@ BEGIN
       );
     END IF;
   END IF;
-
-  -- Crear el perfil público
-  INSERT INTO public.profiles (id, role, full_name, email, document_id)
-  VALUES (
-    new.id,
-    CASE
-      WHEN new.raw_user_meta_data ->> 'role' = 'nutriologo' THEN 'nutriologo'
-      ELSE 'usuario'
-    END,
-    NULLIF(new.raw_user_meta_data ->> 'full_name', ''),
-    new.email,
-    new.raw_user_meta_data ->> 'document_id'
-  )
-  ON CONFLICT (id) DO UPDATE
-  SET full_name = EXCLUDED.full_name,
-      role = EXCLUDED.role,
-      document_id = COALESCE(EXCLUDED.document_id, profiles.document_id);
 
   RETURN new;
 END;
