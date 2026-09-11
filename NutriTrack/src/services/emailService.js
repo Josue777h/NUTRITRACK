@@ -73,6 +73,9 @@ export const emailService = {
             nutriologoId
         });
 
+        const rawBaseUrl = getAppBaseUrl();
+        const cleanDomain = rawBaseUrl.replace(/^https?:\/\//, "");
+
         const templateParams = {
             to_name: patientName || "Paciente",
             name: patientName || "Paciente",
@@ -81,12 +84,31 @@ export const emailService = {
             Email: patientEmail,
             user_email: patientEmail,
             recipient: patientEmail,
+            // Enlace completo de invitación (todas las variantes posibles de nombres)
             invite_link: effectiveInviteUrl,
+            invite_url: effectiveInviteUrl,
+            inviteLink: effectiveInviteUrl,
+            inviteUrl: effectiveInviteUrl,
+            link: effectiveInviteUrl,
+            url: effectiveInviteUrl,
+            action_url: effectiveInviteUrl,
+            activation_link: effectiveInviteUrl,
+            // Datos del nutriólogo y paciente
             nutriologo_name: nutriologoName || "Tu Nutriólogo",
             clinical_code: clinicalCode || "PACIENTE",
             app_name: "NutriTrack",
-            login_url: `${getAppBaseUrl()}/login`,
-            SiteURL: getAppBaseUrl()
+            login_url: `${rawBaseUrl}/login`,
+            // URL base con protocolo (http://localhost:5173 o https://tudominio.com)
+            SiteURL: rawBaseUrl,
+            site_url: rawBaseUrl,
+            siteUrl: rawBaseUrl,
+            app_url: rawBaseUrl,
+            base_url: rawBaseUrl,
+            baseUrl: rawBaseUrl,
+            // URL base limpia sin protocolo (por si en la plantilla se escribió http://{{SiteURL}})
+            domain: cleanDomain,
+            host: cleanDomain,
+            clean_site_url: cleanDomain
         };
 
         const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
