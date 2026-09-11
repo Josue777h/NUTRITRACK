@@ -684,9 +684,9 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                                 <div className="field">
                                     <label>Estado de ánimo</label>
                                     <select value={consultForm.feeling} onChange={e => setConsultForm(c => ({ ...c, feeling: e.target.value }))}>
-                                        <option value="bien">Bien 😊</option>
-                                        <option value="regular">Regular 😐</option>
-                                        <option value="mal">Mal 😔</option>
+                                        <option value="bien">Bien (Estable / Positivo)</option>
+                                        <option value="regular">Regular (Normal)</option>
+                                        <option value="mal">Bajo (Fatiga / Desánimo)</option>
                                     </select>
                                 </div>
                                 <div className="field">

@@ -87,16 +87,16 @@ function ShoppingListModal({ plan, isOpen, onClose }) {
     };
 
     const copyToClipboard = () => {
-        let text = `🛒 LISTA DE COMPRAS — ${plan?.name || "NutriTrack"}\n\n`;
+        let text = `LISTA DE COMPRAS — ${plan?.name || "NutriTrack"}\n\n`;
         Object.entries(categorizedList).forEach(([cat, items]) => {
             if (items.length === 0) return;
-            text += `📌 ${cat.toUpperCase()}:\n`;
+            text += `• ${cat.toUpperCase()}:\n`;
             items.forEach((item) => {
-                text += `  • ${item.name} ${item.qty ? `(${item.qty})` : ""}\n`;
+                text += `  - ${item.name} ${item.qty ? `(${item.qty})` : ""}\n`;
             });
             text += `\n`;
         });
-        text += `Generado automáticamente por NutriTrack.`;
+        text += `Generado por NutriTrack.`;
 
         navigator.clipboard.writeText(text);
         showSuccess("¡Lista copiada al portapapeles! Puedes pegarla en WhatsApp o Notas.");
@@ -108,7 +108,7 @@ function ShoppingListModal({ plan, isOpen, onClose }) {
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="🛒 Lista de Compras del Supermercado"
+            title="Lista de Compras del Supermercado"
             size="large"
         >
             <div style={{ display: "grid", gap: "1rem" }}>

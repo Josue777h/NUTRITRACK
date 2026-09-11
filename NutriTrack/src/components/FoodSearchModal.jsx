@@ -150,7 +150,7 @@ function FoodSearchModal({ isOpen, onClose, onSelectFood, targetMealName = "Comi
             <Modal
                 isOpen={isOpen}
                 onClose={onClose}
-                title={`🔍 Biblioteca de Alimentos para ${targetMealName}`}
+                title={`Biblioteca de Alimentos — ${targetMealName}`}
                 size="large"
                 closeOnOverlayClick={false}
             >
@@ -243,7 +243,7 @@ function FoodSearchModal({ isOpen, onClose, onSelectFood, targetMealName = "Comi
                                 border: "none"
                             }}
                         >
-                            ⭐ Favoritos
+                            <i className="bi bi-star-fill" style={{ marginRight: "0.35rem", color: "#f59e0b" }} /> Favoritos
                         </button>
                         <button
                             type="button"
@@ -256,7 +256,7 @@ function FoodSearchModal({ isOpen, onClose, onSelectFood, targetMealName = "Comi
                                 border: "none"
                             }}
                         >
-                            🕒 Recientes
+                            <i className="bi bi-clock-history" style={{ marginRight: "0.35rem" }} /> Recientes
                         </button>
                         <button
                             type="button"
@@ -269,7 +269,7 @@ function FoodSearchModal({ isOpen, onClose, onSelectFood, targetMealName = "Comi
                                 border: "none"
                             }}
                         >
-                            ✨ Mis Alimentos
+                            <i className="bi bi-plus-circle" style={{ marginRight: "0.35rem" }} /> Mis Alimentos
                         </button>
                     </div>
 
@@ -331,7 +331,9 @@ function FoodSearchModal({ isOpen, onClose, onSelectFood, targetMealName = "Comi
                                                         style={{ width: "38px", height: "38px", objectFit: "cover", borderRadius: "6px", flexShrink: 0 }}
                                                     />
                                                 ) : (
-                                                    <span style={{ fontSize: "1.4rem", flexShrink: 0 }}>{food.icon || "🥗"}</span>
+                                                    <div style={{ width: "38px", height: "38px", borderRadius: "6px", background: "var(--primary-soft)", color: "var(--primary-strong)", display: "grid", placeItems: "center", flexShrink: 0, fontSize: "1.1rem" }}>
+                                                        <i className="bi bi-egg-fried" />
+                                                    </div>
                                                 )}
                                                 <div style={{ minWidth: 0, flex: 1 }}>
                                                     <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>

@@ -44,7 +44,7 @@ export function normalizeFood(raw, source = "library") {
             fat: +fPer100.toFixed(1),
             fiber: +fibPer100.toFixed(1),
             sugar: +sugPer100.toFixed(1),
-            icon: "🛒",
+            icon: null,
             isFavorite: false
         };
     }
@@ -65,7 +65,7 @@ export function normalizeFood(raw, source = "library") {
         fat: Number(raw.fat || 0),
         fiber: Number(raw.fiber || 0),
         sugar: Number(raw.sugar || 0),
-        icon: raw.icon || (source === "custom" ? "✨" : "🥗"),
+        icon: null,
         isFavorite: Boolean(raw.isFavorite || raw.is_favorite)
     };
 }
@@ -295,7 +295,7 @@ export const foodService = {
             fat: Number(foodData.fat) || 0,
             fiber: Number(foodData.fiber) || 0,
             sugar: Number(foodData.sugar) || 0,
-            icon: "✨",
+            icon: null,
             isFavorite: Boolean(foodData.isFavorite)
         };
 

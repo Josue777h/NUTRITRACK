@@ -171,7 +171,7 @@ function ProfilePage({ onLogout, defaultTab }) {
                 gender: personalForm.gender
             });
         }
-        showSuccess("✓ Información guardada correctamente.");
+        showSuccess("Información guardada correctamente.");
     };
 
     const handleChangePassword = async (e) => {
@@ -186,7 +186,7 @@ function ProfilePage({ onLogout, defaultTab }) {
         }
         const result = await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
         if (result.ok) {
-            showSuccess("🔐 Contraseña actualizada exitosamente.");
+            showSuccess("Contraseña actualizada exitosamente.");
             setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
             setPwStrength(0);
         } else {

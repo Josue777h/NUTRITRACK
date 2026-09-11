@@ -105,7 +105,7 @@ function CustomFoodModal({ isOpen, onClose, foodToEdit, onSaved }) {
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={foodToEdit ? "✏️ Editar Alimento Personalizado" : "✨ Crear Alimento Personalizado"}
+            title={foodToEdit ? "Editar Alimento Personalizado" : "Crear Alimento Personalizado"}
             size="medium"
         >
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1.1rem" }}>
@@ -151,8 +151,8 @@ function CustomFoodModal({ isOpen, onClose, foodToEdit, onSaved }) {
 
                 {/* Porción de referencia */}
                 <div style={{ background: "var(--surface-soft)", padding: "0.85rem", borderRadius: "var(--radius)", border: "1px solid var(--line)" }}>
-                    <span style={{ fontSize: "0.78rem", fontWeight: "700", color: "var(--primary-strong)", display: "block", marginBottom: "0.5rem" }}>
-                        📏 Porción de Referencia (Base para cálculos proporcionales)
+                    <span style={{ fontSize: "0.78rem", fontWeight: "700", color: "var(--primary-strong)", display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.5rem" }}>
+                        <i className="bi bi-rulers" /> Porción de Referencia (Base para cálculos proporcionales)
                     </span>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
                         <div className="field" style={{ margin: 0 }}>
@@ -263,7 +263,7 @@ function CustomFoodModal({ isOpen, onClose, foodToEdit, onSaved }) {
                         onChange={handleChange}
                         style={{ width: "16px", height: "16px", accentColor: "var(--primary)" }}
                     />
-                    ⭐ Marcar como favorito para acceso rápido
+                    <i className="bi bi-star" style={{ color: "#f59e0b" }} /> Marcar como favorito para acceso rápido
                 </label>
 
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", borderTop: "1px solid var(--line)", paddingTop: "0.85rem" }}>

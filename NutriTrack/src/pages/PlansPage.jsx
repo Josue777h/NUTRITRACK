@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import PlanModal from "../components/PlanModal";
-import MacroDonutChart from "../components/charts/MacroDonutChart";
 import ShoppingListModal from "../components/ShoppingListModal";
 
 function PlansPage() {
@@ -15,14 +14,27 @@ function PlansPage() {
     const [shoppingPlan, setShoppingPlan] = useState(null);
     const [isShoppingModalOpen, setIsShoppingModalOpen] = useState(false);
     const [selectedPatientId, setSelectedPatientId] = useState(
-        auth.role === "nutriologo" ? String(patients[0]?.id || "") : String(auth.patientId)
+        auth.role === "nutriologo" ? String(patients[0]?.id || "") : String(auth.patientId || "")
     );
 
+    useEffect(() => {
+        if (auth.role === "nutriologo" && !selectedPatientId && patients.length > 0) {
+            setSelectedPatientId(String(patients[0].id));
+        } else if (auth.role !== "nutriologo" && auth.patientId) {
+            setSelectedPatientId(String(auth.patientId));
+        }
+    }, [auth.role, auth.patientId, patients, selectedPatientId]);
+
     const visiblePlans = useMemo(() => {
+        if (auth.role !== "nutriologo") {
+            const patientIdNum = Number(auth.patientId);
+            if (!patientIdNum) return [];
+            return plans.filter((item) => Number(item.patientId) === patientIdNum);
+        }
         const patientIdNum = Number(selectedPatientId);
         if (!patientIdNum) return [];
         return plans.filter((item) => Number(item.patientId) === patientIdNum);
-    }, [plans, selectedPatientId]);
+    }, [plans, selectedPatientId, auth.role, auth.patientId]);
 
     const getPatientName = (patientId) =>
         patients.find((item) => Number(item.id) === Number(patientId))?.name ?? "Paciente";
@@ -118,28 +130,44 @@ function PlansPage() {
                     </div>
                 )}
 
-                <div className="plan-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem", marginTop: "1.5rem" }}>
+                <div className="plan-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1rem", marginTop: "1.25rem" }}>
                     {visiblePlans.length ? (
-                        visiblePlans.map((plan) => (
-                            <div className="panel" key={plan.id} style={{ display: "flex", flexDirection: "column", gap: "1rem", border: "1px solid var(--line)", padding: "1.25rem", borderRadius: "var(--radius-lg)", background: "var(--surface)" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--line)", paddingBottom: "0.75rem" }}>
+                        visiblePlans.map((plan) => {
+                            const pProt = plan.macros?.protein || 25;
+                            const pCarb = plan.macros?.carbs || 50;
+                            const pFat = plan.macros?.fat || 25;
+
+                            return (
+                            <div className="panel" key={plan.id} style={{ display: "flex", flexDirection: "column", gap: "0.75rem", border: "1px solid var(--line)", padding: "1rem", borderRadius: "var(--radius)", background: "var(--surface)", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--line)", paddingBottom: "0.55rem" }}>
                                     <div>
-                                        <h4 style={{ fontWeight: "800", color: "var(--text)", margin: 0, fontSize: "1.05rem" }}>{plan.name || "Plan Alimenticio"}</h4>
-                                        <span style={{ fontSize: "0.78rem", color: "var(--muted)", display: "block", marginTop: "0.2rem" }}>Para: <strong>{getPatientName(plan.patientId)}</strong></span>
+                                        <h4 style={{ fontWeight: "700", color: "var(--text)", margin: 0, fontSize: "0.95rem" }}>{plan.name || "Plan Alimenticio"}</h4>
+                                        <span style={{ fontSize: "0.76rem", color: "var(--muted)", display: "block", marginTop: "0.15rem" }}>
+                                            Paciente: <strong style={{ color: "var(--text)" }}>{getPatientName(plan.patientId)}</strong>
+                                        </span>
                                     </div>
-                                    <span className="badge" style={{ background: "var(--primary-soft)", color: "var(--primary-strong)", fontWeight: "700" }}>
+                                    <span className="badge" style={{ background: "var(--primary-soft)", color: "var(--primary-strong)", fontWeight: "700", fontSize: "0.78rem" }}>
                                         {plan.calories || 2000} kcal
                                     </span>
                                 </div>
                                 
-                                <div style={{ fontSize: "0.84rem", display: "grid", gap: "0.4rem" }}>
-                                    <div><strong>🎯 Objetivo:</strong> {plan.target || "Control calórico"}</div>
-                                    <div><strong>⏱ Duración:</strong> {plan.duration || 4} semanas</div>
+                                <div style={{ fontSize: "0.78rem", display: "flex", gap: "1rem", color: "var(--text-light)", flexWrap: "wrap" }}>
+                                    <span><i className="bi bi-bullseye" style={{ color: "var(--primary)", marginRight: "0.3rem" }} />{plan.target || "Control calórico"}</span>
+                                    <span><i className="bi bi-calendar3" style={{ color: "var(--muted)", marginRight: "0.3rem" }} />{plan.duration || 4} semanas</span>
                                 </div>
 
-                                {/* Macro distribution donut */}
-                                <div style={{ background: "var(--surface-soft)", padding: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)" }}>
-                                    <MacroDonutChart calories={plan.calories} macros={plan.macros} size={110} />
+                                {/* Macro distribution linear bar */}
+                                <div style={{ background: "var(--surface-soft)", padding: "0.5rem 0.65rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)", display: "grid", gap: "0.35rem" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600 }}>
+                                        <span style={{ color: "#16a34a" }}>Prot: {pProt}%</span>
+                                        <span style={{ color: "#2563eb" }}>Carb: {pCarb}%</span>
+                                        <span style={{ color: "#d97706" }}>Grasa: {pFat}%</span>
+                                    </div>
+                                    <div style={{ display: "flex", height: "6px", borderRadius: "999px", overflow: "hidden", background: "var(--line)" }}>
+                                        <div style={{ width: `${pProt}%`, background: "#16a34a" }} />
+                                        <div style={{ width: `${pCarb}%`, background: "#2563eb" }} />
+                                        <div style={{ width: `${pFat}%`, background: "#f59e0b" }} />
+                                    </div>
                                 </div>
 
                                 {/* Action Buttons */}
@@ -208,7 +236,8 @@ function PlansPage() {
                                     )}
                                 </div>
                             </div>
-                        ))
+                        );
+                    })
                     ) : (
                         <div className="panel" style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)" }}>
                             <div className="empty-state">

@@ -3,11 +3,11 @@ import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 
 const MOODS = [
-    { key: "excelente", emoji: "⚡", label: "Enérgico", color: "#49b54c" },
-    { key: "bien", emoji: "😊", label: "Bien", color: "#382ffd" },
-    { key: "regular", emoji: "😐", label: "Normal", color: "#6dd377" },
-    { key: "cansado", emoji: "😴", label: "Cansado", color: "#8b5cf6" },
-    { key: "antojos", emoji: "🍩", label: "Antojos", color: "#ec4899" }
+    { key: "excelente", icon: "bi-lightning-charge-fill", label: "Enérgico", color: "#49b54c" },
+    { key: "bien", icon: "bi-emoji-smile-fill", label: "Bien", color: "#382ffd" },
+    { key: "regular", icon: "bi-emoji-neutral-fill", label: "Normal", color: "#6dd377" },
+    { key: "cansado", icon: "bi-moon-fill", label: "Cansado", color: "#8b5cf6" },
+    { key: "antojos", icon: "bi-cup-hot-fill", label: "Antojos", color: "#ec4899" }
 ];
 
 const MEAL_LABELS = {
@@ -52,7 +52,7 @@ function PatientHabitsTracker({ activePlan }) {
         setWater(next);
         updateDailyHabits(todayStr, { ...todayHabit, waterGlasses: next });
         if (next === 8) {
-            showSuccess("🎉 ¡Felicidades! Has completado tu meta de 2 Litros de agua de hoy.");
+            showSuccess("¡Meta alcanzada! Has completado tus 2 Litros de agua recomendados hoy.");
         }
     };
 
@@ -65,7 +65,7 @@ function PatientHabitsTracker({ activePlan }) {
         updateDailyHabits(todayStr, { ...todayHabit, completedMeals: next });
 
         if (next.length === activeMealsList.length && activeMealsList.length > 0) {
-            showSuccess("🌟 ¡Día perfecto! Has completado todas las comidas de tu plan hoy.");
+            showSuccess("¡Día completado! Has seguido todas las comidas de tu plan hoy.");
         }
     };
 
@@ -87,7 +87,7 @@ function PatientHabitsTracker({ activePlan }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
                     <div>
                         <h4 style={{ fontSize: "1rem", fontWeight: "800", color: "var(--text)", margin: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                            <span style={{ fontSize: "1.2rem" }}>💧</span> Hidratación Diaria
+                            <i className="bi bi-droplet-fill" style={{ color: "#0ea5e9" }} /> Hidratación Diaria
                         </h4>
                         <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
                             Meta: 8 vasos (2,000 ml) · Llevas: <strong>{water * 250} ml ({water}/8 vasos)</strong>
@@ -155,14 +155,14 @@ function PatientHabitsTracker({ activePlan }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
                     <div>
                         <h4 style={{ fontSize: "1rem", fontWeight: "800", color: "var(--text)", margin: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                            <span style={{ fontSize: "1.2rem" }}>🥗</span> Comidas de Hoy
+                            <i className="bi bi-journal-check" style={{ color: "var(--primary)" }} /> Comidas de Hoy
                         </h4>
                         <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
                             {completedMeals.length} de {activeMealsList.length} comidas completadas ({mealProgressPct}%)
                         </span>
                     </div>
                     <span className="badge" style={{ background: mealProgressPct === 100 ? "var(--success-soft)" : "var(--primary-soft)", color: mealProgressPct === 100 ? "var(--success)" : "var(--primary-strong)", fontWeight: "700" }}>
-                        {mealProgressPct === 100 ? "¡Día completado! 🏆" : `${mealProgressPct}% cumplimiento`}
+                        {mealProgressPct === 100 ? "¡Día completado!" : `${mealProgressPct}% cumplimiento`}
                     </span>
                 </div>
 
@@ -269,7 +269,7 @@ function PatientHabitsTracker({ activePlan }) {
                                     transform: isSelected ? "scale(1.04)" : "scale(1)"
                                 }}
                             >
-                                <span style={{ fontSize: "1.3rem" }}>{m.emoji}</span>
+                                <i className={`bi ${m.icon}`} style={{ fontSize: "1.25rem", color: isSelected ? m.color : "var(--muted)" }} />
                                 <span style={{ fontSize: "0.72rem", fontWeight: isSelected ? "700" : "500", color: isSelected ? "var(--text)" : "var(--muted)" }}>
                                     {m.label}
                                 </span>

@@ -1059,31 +1059,31 @@ function AppProvider({ children }) {
 
     const generateWhatsAppPlanMessage = (patientName, plan) => {
         if (!plan) return "";
-        let text = `👋 ¡Hola ${patientName || "Paciente"}! Te comparto tu nuevo plan alimenticio personalizado en *NutriTrack* 🥗\n\n`;
-        text += `🎯 *Objetivo:* ${plan.target || "Nutricional"}\n`;
-        text += `🔥 *Meta Calórica:* ${plan.calories || 2000} kcal/día\n`;
-        text += `⏱ *Duración:* ${plan.duration || 4} semanas\n\n`;
-        text += `📋 *DISTRIBUCIÓN DE COMIDAS:*\n`;
+        let text = `Estimado(a) ${patientName || "Paciente"}: Le compartimos su plan alimenticio personalizado en NutriTrack.\n\n`;
+        text += `• Objetivo: ${plan.target || "Nutricional"}\n`;
+        text += `• Meta Calórica: ${plan.calories || 2000} kcal/día\n`;
+        text += `• Duración: ${plan.duration || 4} semanas\n\n`;
+        text += `DISTRIBUCIÓN DE COMIDAS:\n`;
 
         const mealTitles = {
-            desayuno: "☀️ Desayuno",
-            mediaManana: "🌤 Media Mañana",
-            almuerzo: "🍲 Almuerzo",
-            merienda: "☕ Merienda",
-            cena: "🌙 Cena",
-            snack: "🍪 Snack"
+            desayuno: "Desayuno",
+            mediaManana: "Media Mañana",
+            almuerzo: "Almuerzo",
+            merienda: "Merienda",
+            cena: "Cena",
+            snack: "Snack / Colación"
         };
 
         if (Array.isArray(plan.meals)) {
             plan.meals.forEach((m) => {
                 const foods = m.foods || [];
                 if (foods.length > 0) {
-                    text += `\n*🍳 ${m.name || "Comida"}${m.time ? ` (${m.time})` : ""}:*\n`;
+                    text += `\n*${m.name || "Comida"}${m.time ? ` (${m.time})` : ""}:*\n`;
                     foods.forEach((f) => {
                         const name = typeof f === "string" ? f : f.name;
                         const qty = f.qty ? ` (${f.qty} ${f.unit || ""})` : "";
                         const notes = f.notes ? ` - _${f.notes}_` : "";
-                        text += `  • ${name}${qty}${notes}\n`;
+                        text += `  - ${name}${qty}${notes}\n`;
                     });
                 }
             });
@@ -1095,17 +1095,17 @@ function AppProvider({ children }) {
                         const name = typeof f === "string" ? f : f.name;
                         const qty = f.qty ? ` (${f.qty} ${f.unit || ""})` : "";
                         const notes = f.notes ? ` - _${f.notes}_` : "";
-                        text += `  • ${name}${qty}${notes}\n`;
+                        text += `  - ${name}${qty}${notes}\n`;
                     });
                 }
             });
         }
 
         if (plan.recommendations) {
-            text += `\n📝 *Recomendaciones Clínicas:*\n${plan.recommendations}\n`;
+            text += `\nRecomendaciones Clínicas:\n${plan.recommendations}\n`;
         }
 
-        text += `\n💧 *Recordatorio:* Recuerda tomar mínimo 2L de agua al día y registrar tu progreso en NutriTrack ✨`;
+        text += `\nRecordatorio: Recuerde hidratarse adecuadamente (mínimo 2L de agua al día) y registrar su seguimiento en NutriTrack.`;
         return `https://wa.me/?text=${encodeURIComponent(text)}`;
     };
 
