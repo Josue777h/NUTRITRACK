@@ -14,8 +14,10 @@ const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
+import NutriPreloader from "./components/NutriPreloader";
+
 function PageLoader() {
-    return <main className="route-loading" role="status">Cargando…</main>;
+    return <NutriPreloader />;
 }
 
 function App() {

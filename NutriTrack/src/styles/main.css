@@ -5904,4 +5904,434 @@ a {
   color: var(--muted);
 }
 
+/* ==========================================================================
+   Appointments Page: Fixed Container & Infinite Scroll Feed
+   ========================================================================== */
+.appt-fixed-panel {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 125px);
+  min-height: 520px;
+  overflow: hidden;
+  padding: 1.25rem 1.5rem !important;
+}
+
+@media (max-width: 768px) {
+  .appt-fixed-panel {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+}
+
+.appt-header-fixed {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  z-index: 5;
+}
+
+.appt-scroll-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  padding-top: 0.75rem;
+  scroll-behavior: smooth;
+}
+
+.appt-scroll-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.appt-scroll-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.appt-scroll-body::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+
+.appt-scroll-body::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+.appt-feed-status {
+  padding: 1.25rem 1rem 0.5rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.appt-feed-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  animation: pulseOpacity 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.appt-feed-end {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-top: 1px dashed var(--line);
+  padding-top: 0.75rem;
+  width: 100%;
+  justify-content: center;
+}
+
+/* ==========================================================================
+   NutriPreloader: Cinematic Motion-Graphics Preloader (Figma / Higgsfield style)
+   ========================================================================== */
+.nutri-preloader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  overflow: hidden;
+  user-select: none;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] .nutri-preloader-overlay {
+  background: #08090D;
+}
+
+.nutri-preloader-overlay.is-inline {
+  position: relative;
+  min-height: 380px;
+  background: transparent;
+  border-radius: var(--radius-lg);
+}
+
+.nutri-preloader-overlay.is-exiting {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+}
+
+/* Ambient glow spheres */
+.nutri-preloader-ambient-glow {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(73, 181, 76, 0.22) 0%, rgba(73, 181, 76, 0.05) 50%, transparent 70%);
+  filter: blur(40px);
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: ambientFloat 8s infinite alternate ease-in-out;
+}
+
+.nutri-preloader-ambient-glow-blue {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 47, 253, 0.18) 0%, rgba(56, 47, 253, 0.03) 50%, transparent 70%);
+  filter: blur(45px);
+  top: 55%;
+  left: 52%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: ambientFloatBlue 7s infinite alternate-reverse ease-in-out;
+}
+
+@keyframes ambientFloat {
+  0% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.6; }
+  100% { transform: translate(-46%, -54%) scale(1.1); opacity: 0.95; }
+}
+
+@keyframes ambientFloatBlue {
+  0% { transform: translate(-50%, -50%) scale(1.08); opacity: 0.5; }
+  100% { transform: translate(-54%, -46%) scale(0.9); opacity: 0.85; }
+}
+
+/* Floating micro-particles */
+.nutri-preloader-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.nutri-preloader-particles .particle {
+  position: absolute;
+  border-radius: 50%;
+  background: #6DD377;
+  opacity: 0.35;
+  filter: blur(1px);
+}
+
+.particle.p1 { width: 4px; height: 4px; top: 25%; left: 30%; animation: particleDrift 5s infinite ease-in-out; }
+.particle.p2 { width: 6px; height: 6px; top: 68%; left: 24%; background: #382FFD; animation: particleDrift 7s infinite reverse ease-in-out; }
+.particle.p3 { width: 3px; height: 3px; top: 32%; left: 72%; animation: particleDrift 6s infinite 1s ease-in-out; }
+.particle.p4 { width: 5px; height: 5px; top: 75%; left: 76%; background: #49B54C; animation: particleDrift 8s infinite 2s ease-in-out; }
+.particle.p5 { width: 4px; height: 4px; top: 15%; left: 55%; background: #6DD377; animation: particleDrift 5.5s infinite 1.5s ease-in-out; }
+
+@keyframes particleDrift {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+  50% { transform: translateY(-24px) scale(1.25); opacity: 0.7; }
+}
+
+/* Stage & Orb */
+.nutri-preloader-stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 440px;
+  width: 90%;
+}
+
+.nutri-preloader-orb-wrapper {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.75rem;
+}
+
+.preloader-core-glow {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(73, 181, 76, 0.45) 0%, rgba(56, 47, 253, 0.2) 60%, transparent 80%);
+  filter: blur(12px);
+  animation: corePulse 2s infinite ease-in-out;
+}
+
+@keyframes corePulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+
+/* Rotating Kinetic Rings */
+.preloader-ring {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ring-outer {
+  width: 136px;
+  height: 136px;
+  border: 2px dashed rgba(109, 211, 119, 0.45);
+  border-top-color: #49B54C;
+  border-right-color: #382FFD;
+  animation: spinCw 9s linear infinite;
+  box-shadow: 0 0 15px rgba(73, 181, 76, 0.15);
+}
+
+.ring-middle {
+  width: 110px;
+  height: 110px;
+  border: 1.5px solid rgba(56, 47, 253, 0.25);
+  border-left: 2px solid #382FFD;
+  border-bottom: 2px solid #49B54C;
+  animation: spinCcw 6s linear infinite;
+}
+
+.ring-inner {
+  width: 86px;
+  height: 86px;
+  border: 1px dotted rgba(73, 181, 76, 0.5);
+  animation: spinCw 4s linear infinite;
+}
+
+@keyframes spinCw {
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spinCcw {
+  100% { transform: rotate(-360deg); }
+}
+
+/* SVG Elements Animation */
+.preloader-svg-logo {
+  width: 82px;
+  height: 82px;
+  z-index: 3;
+  filter: drop-shadow(0 4px 16px rgba(73, 181, 76, 0.35));
+}
+
+.svg-leaf-path {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 0;
+  animation: drawLeaf 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes drawLeaf {
+  0% { stroke-dashoffset: 240; opacity: 0.3; }
+  50% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+.svg-orbit-ellipse {
+  transform-origin: center;
+  animation: orbitSpin 7s linear infinite;
+}
+
+@keyframes orbitSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.svg-energy-core {
+  animation: energyCoreBreathe 1.8s infinite ease-in-out;
+}
+
+@keyframes energyCoreBreathe {
+  0%, 100% { r: 4; opacity: 0.8; }
+  50% { r: 5.5; opacity: 1; }
+}
+
+/* Brand Typography & Shimmer */
+.nutri-preloader-brand {
+  margin-bottom: 1.5rem;
+}
+
+.nutri-preloader-title {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  line-height: 1;
+}
+
+.brand-text {
+  background: linear-gradient(
+    90deg,
+    var(--text) 0%,
+    var(--primary) 35%,
+    #6DD377 50%,
+    var(--secondary) 65%,
+    var(--text) 100%
+  );
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shineSweep 3.5s linear infinite;
+}
+
+.brand-dot {
+  color: var(--primary);
+  font-size: 2.2rem;
+  line-height: 0;
+  margin-left: 0.15rem;
+  text-shadow: 0 0 10px rgba(73, 181, 76, 0.6);
+}
+
+.nutri-preloader-subtitle {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  margin-top: 0.45rem;
+  text-transform: uppercase;
+}
+
+@keyframes shineSweep {
+  0% { background-position: 250% center; }
+  100% { background-position: -50% center; }
+}
+
+/* Progress bar & dynamic status */
+.nutri-preloader-progress-box {
+  width: 100%;
+}
+
+.nutri-progress-track {
+  width: 100%;
+  height: 4px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.nutri-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--secondary) 0%, var(--primary) 60%, #6DD377 100%);
+  border-radius: 999px;
+  transition: width 0.18s ease-out;
+  position: relative;
+  box-shadow: 0 0 10px rgba(73, 181, 76, 0.5);
+}
+
+.nutri-progress-flare {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  background: #FFFFFF;
+  box-shadow: 0 0 8px #FFFFFF, 0 0 16px var(--primary);
+  border-radius: 999px;
+  opacity: 0.9;
+}
+
+.nutri-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.65rem;
+  font-size: 0.78rem;
+}
+
+.nutri-progress-text {
+  color: var(--text-soft);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nutri-progress-pct {
+  font-weight: 700;
+  color: var(--primary-strong);
+  font-variant-numeric: tabular-nums;
+  margin-left: 0.75rem;
+}
+
+
 

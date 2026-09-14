@@ -2,7 +2,7 @@
 
 
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import AppointmentModal from "../components/AppointmentModal";
@@ -385,6 +385,35 @@ function AppointmentsPage() {
         (a) => a.status?.toLowerCase() === "completada" || a.status?.toLowerCase() === "cancelada"
     );
 
+    // ─── Scroll Infinito (Paginación Dinámica Feed) ───
+    const [visibleCount, setVisibleCount] = useState(12);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+    // Resetear al cambiar filtros o búsqueda
+    useEffect(() => {
+        setVisibleCount(12);
+    }, [activeFilter, searchQuery]);
+
+    const visibleUpcoming = useMemo(() => {
+        return upcoming.slice(0, visibleCount);
+    }, [upcoming, visibleCount]);
+
+    const hasMore = visibleCount < upcoming.length;
+
+    const handleScroll = (e) => {
+        const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 90) {
+            if (hasMore && !isLoadingMore) {
+                setIsLoadingMore(true);
+                setTimeout(() => {
+                    setVisibleCount((prev) => prev + 12);
+                    setIsLoadingMore(false);
+                }, 220);
+            }
+        }
+    };
+
+
     const openModal = (mode, appt = null) => {
         if (mode === "add" && isNutri && (!patients || patients.length === 0)) {
             showWarning("Primero registra al menos un paciente para agendar una cita.");
@@ -471,262 +500,292 @@ function AppointmentsPage() {
 
     return (
         <section className="single-panel">
-            <article className="panel">
-                <div className="panel-header">
-                    <div>
-                        <h3 className="panel-title">
-                            <i className="bi bi-calendar3-event-fill" style={{ color: "var(--primary)", marginRight: "0.5rem" }} />
-                            {isNutri ? "Agenda de citas" : "Mis citas"}
-                        </h3>
-                        <p className="panel-subtitle">
-                            {isNutri
-                                ? "Administra, agenda y gestiona todas las citas con tus pacientes."
-                                : "Consulta las citas agendadas por tu nutricionista."}
-                        </p>
-                    </div>
-                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                        {/* Selector de visualización compacta / cuadrícula */}
-                        <div style={{ display: "inline-flex", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", overflow: "hidden", background: "var(--surface)" }}>
-                            <button
-                                type="button"
-                                className={`btn small ${viewMode === "list" ? "primary" : "ghost"}`}
-                                onClick={() => setViewMode("list")}
-                                style={{ borderRadius: 0, padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
-                                title="Vista compacta en lista (ocupa menos espacio)"
-                            >
-                                <i className="bi bi-list-ul" /> Lista
-                            </button>
-                            <button
-                                type="button"
-                                className={`btn small ${viewMode === "grid" ? "primary" : "ghost"}`}
-                                onClick={() => setViewMode("grid")}
-                                style={{ borderRadius: 0, padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
-                                title="Vista en tarjetas cuadrícula"
-                            >
-                                <i className="bi bi-grid-fill" /> Tarjetas
-                            </button>
+            <article className="panel appt-fixed-panel">
+                {/* Cabecera y Barra de Búsqueda FIJAS en la parte superior */}
+                <div className="appt-header-fixed">
+                    <div className="panel-header" style={{ marginBottom: 0 }}>
+                        <div>
+                            <h3 className="panel-title">
+                                <i className="bi bi-calendar3-event-fill" style={{ color: "var(--primary)", marginRight: "0.5rem" }} />
+                                {isNutri ? "Agenda de citas" : "Mis citas"}
+                            </h3>
+                            <p className="panel-subtitle">
+                                {isNutri
+                                    ? "Administra, agenda y gestiona todas las citas con tus pacientes."
+                                    : "Consulta las citas agendadas por tu nutricionista."}
+                            </p>
                         </div>
-
-                        {historyList.length > 0 && (
-                            <button className="btn secondary" type="button" onClick={downloadHistory}>
-                                <i className="bi bi-download" />
-                                Descargar historial
-                            </button>
-                        )}
-                        {isNutri && (
-                            <button className="btn" type="button" onClick={() => openModal("add")}>
-                                <i className="bi bi-calendar-plus" />
-                                Agregar cita
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {allVisible.length > 0 && (
-                    <div className="appt-toolbar">
-                        <div className="appt-search-wrapper">
-                            <i className="bi bi-search appt-search-icon" />
-                            <input
-                                type="search"
-                                className="appt-search-input"
-                                placeholder="Buscar por nombre, cédula (DNI) o código PAC..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                            {searchQuery && (
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                            {/* Selector de visualización compacta / cuadrícula */}
+                            <div style={{ display: "inline-flex", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", overflow: "hidden", background: "var(--surface)" }}>
                                 <button
                                     type="button"
-                                    className="appt-search-clear"
-                                    onClick={() => setSearchQuery("")}
-                                    title="Limpiar búsqueda"
+                                    className={`btn small ${viewMode === "list" ? "primary" : "ghost"}`}
+                                    onClick={() => setViewMode("list")}
+                                    style={{ borderRadius: 0, padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+                                    title="Vista compacta en lista (ocupa menos espacio)"
                                 >
-                                    <i className="bi bi-x-lg" />
+                                    <i className="bi bi-list-ul" /> Lista
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`btn small ${viewMode === "grid" ? "primary" : "ghost"}`}
+                                    onClick={() => setViewMode("grid")}
+                                    style={{ borderRadius: 0, padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+                                    title="Vista en tarjetas cuadrícula"
+                                >
+                                    <i className="bi bi-grid-fill" /> Tarjetas
+                                </button>
+                            </div>
+
+                            {historyList.length > 0 && (
+                                <button className="btn secondary" type="button" onClick={downloadHistory}>
+                                    <i className="bi bi-download" />
+                                    Descargar historial
+                                </button>
+                            )}
+                            {isNutri && (
+                                <button className="btn" type="button" onClick={() => openModal("add")}>
+                                    <i className="bi bi-calendar-plus" />
+                                    Agregar cita
                                 </button>
                             )}
                         </div>
+                    </div>
 
-                        <div className="filter-pills-bar" style={{ margin: 0 }}>
-                            {FILTERS.map((f) => {
-                                const count = f.key === "todas"
-                                    ? allVisible.length
-                                    : allVisible.filter((a) => a.status?.toLowerCase() === f.key).length;
-                                return (
+                    {allVisible.length > 0 && (
+                        <div className="appt-toolbar" style={{ margin: 0 }}>
+                            <div className="appt-search-wrapper">
+                                <i className="bi bi-search appt-search-icon" />
+                                <input
+                                    type="search"
+                                    className="appt-search-input"
+                                    placeholder="Buscar por nombre, cédula (DNI) o código PAC..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                                {searchQuery && (
                                     <button
-                                        key={f.key}
                                         type="button"
-                                        className={`filter-pill${activeFilter === f.key ? " active" : ""}`}
-                                        onClick={() => setActiveFilter(f.key)}
+                                        className="appt-search-clear"
+                                        onClick={() => setSearchQuery("")}
+                                        title="Limpiar búsqueda"
                                     >
-                                        <i className={`bi ${f.icon}`} />
-                                        {f.label}
-                                        {count > 0 && (
-                                            <span className="filter-pill-count">
-                                                {count}
-                                            </span>
-                                        )}
+                                        <i className="bi bi-x-lg" />
                                     </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Render de citas activas */}
-                {upcoming.length > 0 && (
-                    <div style={{ marginBottom: pastOnAgenda.length > 0 || historyList.length > 0 ? "1.5rem" : 0 }}>
-                        <p className="appt-section-label">
-                            <i className="bi bi-calendar3-event-fill" />
-                            {isNutri ? "Próximas y activas" : "Mis próximas citas"}
-                            <span className="appt-count">{upcoming.length}</span>
-                        </p>
-                        {viewMode === "list" ? (
-                            <div className="appt-list-compact">
-                                {upcoming.map((slot) => (
-                                    <AppointmentRowCompact
-                                        key={slot.id}
-                                        slot={slot}
-                                        isNutri={isNutri}
-                                        patient={getPatient(slot.patientId)}
-                                        onView={() => openModal("view", slot)}
-                                        onEdit={() => openModal("edit", slot)}
-                                        onConfirm={() => {
-                                            updateAppointment(slot.id, { ...slot, status: "Confirmada" });
-                                            showSuccess("Cita confirmada.");
-                                        }}
-                                        onComplete={() => {
-                                            updateAppointment(slot.id, { ...slot, status: "Completada" });
-                                            showSuccess("¡Consulta marcada como completada!");
-                                        }}
-                                        onCancel={() => handleCancel(slot.id)}
-                                        onRemove={() => confirmRemove(slot.id)}
-                                    />
-                                ))}
+                                )}
                             </div>
-                        ) : (
-                            <div className="appt-grid">
-                                {upcoming.map((slot) => (
-                                    <AppointmentCard
-                                        key={slot.id}
-                                        slot={slot}
-                                        isNutri={isNutri}
-                                        patient={getPatient(slot.patientId)}
-                                        onView={() => openModal("view", slot)}
-                                        onEdit={() => openModal("edit", slot)}
-                                        onConfirm={() => {
-                                            updateAppointment(slot.id, { ...slot, status: "Confirmada" });
-                                            showSuccess("Cita confirmada.");
-                                        }}
-                                        onComplete={() => {
-                                            updateAppointment(slot.id, { ...slot, status: "Completada" });
-                                            showSuccess("¡Consulta marcada como completada!");
-                                        }}
-                                        onCancel={() => handleCancel(slot.id)}
-                                        onRemove={() => confirmRemove(slot.id)}
-                                    />
-                                ))}
+
+                            <div className="filter-pills-bar" style={{ margin: 0 }}>
+                                {FILTERS.map((f) => {
+                                    const count = f.key === "todas"
+                                        ? allVisible.length
+                                        : allVisible.filter((a) => a.status?.toLowerCase() === f.key).length;
+                                    return (
+                                        <button
+                                            key={f.key}
+                                            type="button"
+                                            className={`filter-pill${activeFilter === f.key ? " active" : ""}`}
+                                            onClick={() => setActiveFilter(f.key)}
+                                        >
+                                            <i className={`bi ${f.icon}`} />
+                                            {f.label}
+                                            {count > 0 && (
+                                                <span className="filter-pill-count">
+                                                    {count}
+                                                </span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Render de citas pasadas / Historial (Acordeón colapsable para no ocupar espacio innecesario) */}
-                {(pastOnAgenda.length > 0 || historyList.length > 0) && (
-                    <div style={{ marginTop: "1rem", borderTop: "1px solid var(--line)", paddingTop: "1rem" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-                            <button
-                                type="button"
-                                className="btn ghost"
-                                onClick={() => setIsHistoryExpanded(p => !p)}
-                                style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.6rem", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" }}
-                            >
-                                <i className="bi bi-clock-history" style={{ color: "var(--primary)" }} />
-                                <span>Historial (Completadas / Canceladas)</span>
-                                <span className="appt-count">{historyList.length}</span>
-                                <i className={`bi ${isHistoryExpanded ? "bi-chevron-up" : "bi-chevron-down"}`} style={{ fontSize: "0.75rem", color: "var(--muted)" }} />
-                            </button>
-
-                            <button className="btn secondary small" type="button" onClick={downloadHistory}>
-                                <i className="bi bi-download" />
-                                Descargar CSV
-                            </button>
                         </div>
+                    )}
+                </div>
 
-                        {isHistoryExpanded && (
-                            viewMode === "list" ? (
-                                <div className="appt-list-compact" style={{ animation: "fadeIn 0.2s ease-out" }}>
-                                    {historyList.map((slot) => (
+                {/* Contenedor SCROLLABLE INDEPENDIENTE para las citas (Feed Infinito) */}
+                <div className="appt-scroll-body" onScroll={handleScroll}>
+                    {/* Render de citas activas */}
+                    {upcoming.length > 0 && (
+                        <div style={{ marginBottom: pastOnAgenda.length > 0 || historyList.length > 0 ? "1.5rem" : 0 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.65rem" }}>
+                                <p className="appt-section-label" style={{ margin: 0 }}>
+                                    <i className="bi bi-calendar3-event-fill" />
+                                    {isNutri ? "Próximas y activas" : "Mis próximas citas"}
+                                    <span className="appt-count">{upcoming.length}</span>
+                                </p>
+                                {upcoming.length > 12 && (
+                                    <span style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 500 }}>
+                                        Mostrando {Math.min(visibleCount, upcoming.length)} de {upcoming.length} citas
+                                    </span>
+                                )}
+                            </div>
+
+                            {viewMode === "list" ? (
+                                <div className="appt-list-compact">
+                                    {visibleUpcoming.map((slot) => (
                                         <AppointmentRowCompact
-                                            key={`hist-${slot.id}-${slot.archivedAt || slot.status}`}
+                                            key={slot.id}
                                             slot={slot}
                                             isNutri={isNutri}
                                             patient={getPatient(slot.patientId)}
                                             onView={() => openModal("view", slot)}
                                             onEdit={() => openModal("edit", slot)}
-                                            onConfirm={() => { }}
+                                            onConfirm={() => {
+                                                updateAppointment(slot.id, { ...slot, status: "Confirmada" });
+                                                showSuccess("Cita confirmada.");
+                                            }}
+                                            onComplete={() => {
+                                                updateAppointment(slot.id, { ...slot, status: "Completada" });
+                                                showSuccess("¡Consulta marcada como completada!");
+                                            }}
                                             onCancel={() => handleCancel(slot.id)}
                                             onRemove={() => confirmRemove(slot.id)}
                                         />
                                     ))}
                                 </div>
                             ) : (
-                                <div className="appt-grid" style={{ animation: "fadeIn 0.2s ease-out" }}>
-                                    {historyList.map((slot) => (
+                                <div className="appt-grid">
+                                    {visibleUpcoming.map((slot) => (
                                         <AppointmentCard
-                                            key={`hist-${slot.id}-${slot.archivedAt || slot.status}`}
+                                            key={slot.id}
                                             slot={slot}
                                             isNutri={isNutri}
                                             patient={getPatient(slot.patientId)}
                                             onView={() => openModal("view", slot)}
                                             onEdit={() => openModal("edit", slot)}
-                                            onConfirm={() => { }}
+                                            onConfirm={() => {
+                                                updateAppointment(slot.id, { ...slot, status: "Confirmada" });
+                                                showSuccess("Cita confirmada.");
+                                            }}
+                                            onComplete={() => {
+                                                updateAppointment(slot.id, { ...slot, status: "Completada" });
+                                                showSuccess("¡Consulta marcada como completada!");
+                                            }}
                                             onCancel={() => handleCancel(slot.id)}
                                             onRemove={() => confirmRemove(slot.id)}
                                         />
                                     ))}
                                 </div>
-                            )
-                        )}
-                    </div>
-                )}
+                            )}
 
-                {filteredAppointments.length === 0 && (
-                    <div className="empty-state-block" style={{ padding: "2.5rem 1rem", marginTop: "1rem" }}>
-                        <div className="empty-state-icon">
-                            <i className="bi bi-calendar3-event" />
+                            {/* Indicador de scroll infinito y fin de lista */}
+                            <div className="appt-feed-status">
+                                {isLoadingMore && (
+                                    <span className="appt-feed-loading">
+                                        <i className="bi bi-arrow-repeat spin" />
+                                        Cargando más citas...
+                                    </span>
+                                )}
+                                {!hasMore && upcoming.length > 12 && (
+                                    <span className="appt-feed-end">
+                                        <i className="bi bi-check2-all" />
+                                        Has recorrido todas las citas ({upcoming.length})
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <h4>
-                            {searchQuery
-                                ? "No se encontraron resultados"
-                                : activeFilter !== "todas"
-                                    ? `Sin citas ${FILTERS.find((f) => f.key === activeFilter)?.label.toLowerCase()}`
-                                    : "No hay citas registradas"}
-                        </h4>
-                        <p>
-                            {searchQuery
-                                ? `No encontramos ninguna cita para "${searchQuery}". Puedes buscar por nombre, cédula o código (ej: PAC-...).`
-                                : isNutri
-                                    ? "Agrega la primera cita para comenzar a gestionar tu agenda."
-                                    : "Aquí aparecerán tus citas agendadas por tu nutricionista."}
-                        </p>
-                        {searchQuery ? (
-                            <button className="btn secondary small" type="button" onClick={() => setSearchQuery("")}>
-                                <i className="bi bi-x-circle" /> Limpiar búsqueda
-                            </button>
-                        ) : activeFilter !== "todas" ? (
-                            <button className="btn secondary" onClick={() => setActiveFilter("todas")}>
-                                <i className="bi bi-x-circle" />
-                                Ver todas
-                            </button>
-                        ) : (
-                            isNutri && (
-                                <button className="btn" type="button" onClick={() => openModal("add")}>
-                                    <i className="bi bi-calendar-plus" />
-                                    Agregar primera cita
+                    )}
+
+                    {/* Render de citas pasadas / Historial (Acordeón colapsable para no ocupar espacio innecesario) */}
+                    {(pastOnAgenda.length > 0 || historyList.length > 0) && (
+                        <div style={{ marginTop: "1rem", borderTop: "1px solid var(--line)", paddingTop: "1rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+                                <button
+                                    type="button"
+                                    className="btn ghost"
+                                    onClick={() => setIsHistoryExpanded(p => !p)}
+                                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.6rem", fontWeight: 700, fontSize: "0.9rem", color: "var(--text)" }}
+                                >
+                                    <i className="bi bi-clock-history" style={{ color: "var(--primary)" }} />
+                                    <span>Historial (Completadas / Canceladas)</span>
+                                    <span className="appt-count">{historyList.length}</span>
+                                    <i className={`bi ${isHistoryExpanded ? "bi-chevron-up" : "bi-chevron-down"}`} style={{ fontSize: "0.75rem", color: "var(--muted)" }} />
                                 </button>
-                            )
-                        )}
-                    </div>
-                )}
+
+                                <button className="btn secondary small" type="button" onClick={downloadHistory}>
+                                    <i className="bi bi-download" />
+                                    Descargar CSV
+                                </button>
+                            </div>
+
+                            {isHistoryExpanded && (
+                                viewMode === "list" ? (
+                                    <div className="appt-list-compact" style={{ animation: "fadeIn 0.2s ease-out" }}>
+                                        {historyList.map((slot) => (
+                                            <AppointmentRowCompact
+                                                key={`hist-${slot.id}-${slot.archivedAt || slot.status}`}
+                                                slot={slot}
+                                                isNutri={isNutri}
+                                                patient={getPatient(slot.patientId)}
+                                                onView={() => openModal("view", slot)}
+                                                onEdit={() => openModal("edit", slot)}
+                                                onConfirm={() => { }}
+                                                onCancel={() => handleCancel(slot.id)}
+                                                onRemove={() => confirmRemove(slot.id)}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="appt-grid" style={{ animation: "fadeIn 0.2s ease-out" }}>
+                                        {historyList.map((slot) => (
+                                            <AppointmentCard
+                                                key={`hist-${slot.id}-${slot.archivedAt || slot.status}`}
+                                                slot={slot}
+                                                isNutri={isNutri}
+                                                patient={getPatient(slot.patientId)}
+                                                onView={() => openModal("view", slot)}
+                                                onEdit={() => openModal("edit", slot)}
+                                                onConfirm={() => { }}
+                                                onCancel={() => handleCancel(slot.id)}
+                                                onRemove={() => confirmRemove(slot.id)}
+                                            />
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    )}
+
+                    {filteredAppointments.length === 0 && (
+                        <div className="empty-state-block" style={{ padding: "2.5rem 1rem", marginTop: "1rem" }}>
+                            <div className="empty-state-icon">
+                                <i className="bi bi-calendar3-event" />
+                            </div>
+                            <h4>
+                                {searchQuery
+                                    ? "No se encontraron resultados"
+                                    : activeFilter !== "todas"
+                                        ? `Sin citas ${FILTERS.find((f) => f.key === activeFilter)?.label.toLowerCase()}`
+                                        : "No hay citas registradas"}
+                            </h4>
+                            <p>
+                                {searchQuery
+                                    ? `No encontramos ninguna cita para "${searchQuery}". Puedes buscar por nombre, cédula o código (ej: PAC-...).`
+                                    : isNutri
+                                        ? "Agrega la primera cita para comenzar a gestionar tu agenda."
+                                        : "Aquí aparecerán tus citas agendadas por tu nutricionista."}
+                            </p>
+                            {searchQuery ? (
+                                <button className="btn secondary small" type="button" onClick={() => setSearchQuery("")}>
+                                    <i className="bi bi-x-circle" /> Limpiar búsqueda
+                                </button>
+                            ) : activeFilter !== "todas" ? (
+                                <button className="btn secondary" onClick={() => setActiveFilter("todas")}>
+                                    <i className="bi bi-x-circle" />
+                                    Ver todas
+                                </button>
+                            ) : (
+                                isNutri && (
+                                    <button className="btn" type="button" onClick={() => openModal("add")}>
+                                        <i className="bi bi-calendar-plus" />
+                                        Agregar primera cita
+                                    </button>
+                                )
+                            )}
+                        </div>
+                    )}
+                </div>
             </article>
 
             <AppointmentModal
