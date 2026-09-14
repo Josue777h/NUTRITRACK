@@ -585,13 +585,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.route-loading {
-  display: grid;
-  min-height: 50vh;
-  place-items: center;
-  color: var(--muted);
-  font-weight: 600;
-}
 
 h1,
 h2,

@@ -6,12 +6,12 @@ import App from "./App";
 import { AppProvider } from "./context/AppContext";
 import { ToastProvider } from "./context/ToastContext";
 import ToastContainer from "./components/ToastContainer";
-import Preloader from "./components/Preloader";
+import NutriPreloader from "./components/NutriPreloader";
 import "./styles/main.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
     <React.StrictMode>
-        <Preloader />
+        <NutriPreloader />
         <ToastProvider>
             <AppProvider>
                 <BrowserRouter>

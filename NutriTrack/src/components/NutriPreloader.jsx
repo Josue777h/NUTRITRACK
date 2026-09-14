@@ -16,6 +16,7 @@ export default function NutriPreloader({
     const [progress, setProgress] = useState(12);
     const [stepIndex, setStepIndex] = useState(0);
     const [isExiting, setIsExiting] = useState(false);
+    const [isDone, setIsDone] = useState(false);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -41,12 +42,16 @@ export default function NutriPreloader({
             const timeout = setTimeout(() => {
                 setIsExiting(true);
                 setTimeout(() => {
+                    setIsDone(true);
                     onFinish?.();
-                }, 400);
+                }, 450);
             }, 300);
             return () => clearTimeout(timeout);
         }
     }, [progress, stepIndex, onFinish]);
+
+    if (isDone) return null;
+
 
     const activeMessage = message || LOADING_STEPS[stepIndex];
 
