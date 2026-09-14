@@ -1,34 +1,38 @@
+
+
+
+
 import { useMemo, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import AppointmentModal from "../components/AppointmentModal";
 
 const STATUS_MAP = {
-    pendiente:  { label: "Pendiente",  icon: "bi-clock",            stripe: "var(--warning)" },
+    pendiente: { label: "Pendiente", icon: "bi-clock", stripe: "var(--warning)" },
     confirmada: { label: "Confirmada", icon: "bi-check-circle-fill", stripe: "var(--success)" },
-    completada: { label: "Completada", icon: "bi-check2-all",        stripe: "var(--info)" },
-    cancelada:  { label: "Cancelada",  icon: "bi-x-circle-fill",     stripe: "var(--danger)" },
+    completada: { label: "Completada", icon: "bi-check2-all", stripe: "var(--info)" },
+    cancelada: { label: "Cancelada", icon: "bi-x-circle-fill", stripe: "var(--danger)" },
 };
 
 const STATUS_PILL_CLASS = {
-    pendiente:  "pendiente",
+    pendiente: "pendiente",
     confirmada: "confirmada",
     completada: "completada",
-    cancelada:  "cancelada",
+    cancelada: "cancelada",
 };
 
 const TYPE_LABELS = {
-    consulta:       { label: "Primera Consulta",          icon: "bi-calendar-heart" },
-    seguimiento:    { label: "Control y Seguimiento",     icon: "bi-graph-up" },
-    antropometria:  { label: "Evaluación Antropométrica", icon: "bi-rulers" },
-    planificacion:  { label: "Revisión de Plan",          icon: "bi-journal-check" },
+    consulta: { label: "Primera Consulta", icon: "bi-calendar-heart" },
+    seguimiento: { label: "Control y Seguimiento", icon: "bi-graph-up" },
+    antropometria: { label: "Evaluación Antropométrica", icon: "bi-rulers" },
+    planificacion: { label: "Revisión de Plan", icon: "bi-journal-check" },
 };
 
 const FILTERS = [
-    { key: "todas",     label: "Todas",     icon: "bi-calendar3" },
-    { key: "pendiente", label: "Pendientes",icon: "bi-clock" },
-    { key: "confirmada",label: "Confirmadas",icon: "bi-check-circle" },
-    { key: "completada",label: "Completadas",icon: "bi-check2-all" },
+    { key: "todas", label: "Todas", icon: "bi-calendar3" },
+    { key: "pendiente", label: "Pendientes", icon: "bi-clock" },
+    { key: "confirmada", label: "Confirmadas", icon: "bi-check-circle" },
+    { key: "completada", label: "Completadas", icon: "bi-check2-all" },
     { key: "cancelada", label: "Canceladas", icon: "bi-x-circle" },
 ];
 
@@ -182,9 +186,9 @@ function AppointmentRowCompact({ slot, isNutri, patient, onView, onEdit, onConfi
 
 function AppointmentCard({ slot, isNutri, patient, onView, onEdit, onConfirm, onComplete, onCancel, onRemove }) {
     const statusKey = slot.status?.toLowerCase() ?? "pendiente";
-    const si  = STATUS_MAP[statusKey] ?? STATUS_MAP.pendiente;
+    const si = STATUS_MAP[statusKey] ?? STATUS_MAP.pendiente;
     const pillClass = STATUS_PILL_CLASS[statusKey] ?? "pendiente";
-    const typeInfo  = TYPE_LABELS[slot.type] ?? { label: slot.type || "Consulta Nutricional", icon: "bi-calendar-event" };
+    const typeInfo = TYPE_LABELS[slot.type] ?? { label: slot.type || "Consulta Nutricional", icon: "bi-calendar-event" };
 
     const isMutable = statusKey !== "cancelada" && statusKey !== "completada";
     const patientName = isNutri ? (patient?.name ?? "Paciente sin asignar") : "Tu Nutriólogo";
@@ -304,12 +308,12 @@ function AppointmentsPage() {
     const { showSuccess, showWarning } = useToast();
     const isNutri = auth.role === "nutriologo";
 
-    const [isModalOpen,    setIsModalOpen]    = useState(false);
-    const [selectedAppt,   setSelectedAppt]   = useState(null);
-    const [modalMode,      setModalMode]      = useState("view");
-    const [activeFilter,   setActiveFilter]   = useState("todas");
-    const [searchQuery,    setSearchQuery]    = useState("");
-    const [viewMode,       setViewMode]       = useState("list");
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedAppt, setSelectedAppt] = useState(null);
+    const [modalMode, setModalMode] = useState("view");
+    const [activeFilter, setActiveFilter] = useState("todas");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [viewMode, setViewMode] = useState("list");
     const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
 
     const allVisible = useMemo(() => {
@@ -658,7 +662,7 @@ function AppointmentsPage() {
                                             patient={getPatient(slot.patientId)}
                                             onView={() => openModal("view", slot)}
                                             onEdit={() => openModal("edit", slot)}
-                                            onConfirm={() => {}}
+                                            onConfirm={() => { }}
                                             onCancel={() => handleCancel(slot.id)}
                                             onRemove={() => confirmRemove(slot.id)}
                                         />
@@ -674,7 +678,7 @@ function AppointmentsPage() {
                                             patient={getPatient(slot.patientId)}
                                             onView={() => openModal("view", slot)}
                                             onEdit={() => openModal("edit", slot)}
-                                            onConfirm={() => {}}
+                                            onConfirm={() => { }}
                                             onCancel={() => handleCancel(slot.id)}
                                             onRemove={() => confirmRemove(slot.id)}
                                         />

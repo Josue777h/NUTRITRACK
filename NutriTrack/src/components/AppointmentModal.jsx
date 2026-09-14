@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useToast } from '../context/ToastContext';
 import { useApp } from '../context/AppContext';
+import PatientSearchPicker from './PatientSearchPicker';
+
 
 const AppointmentModal = ({ appointment, patients = [], isOpen, onClose, onSave, onDelete, mode = 'view' }) => {
     const { showError } = useToast();
@@ -221,21 +223,15 @@ const AppointmentModal = ({ appointment, patients = [], isOpen, onClose, onSave,
             <div className="modal-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 {auth.role === 'nutriologo' ? (
                     <div className="field" style={{ gridColumn: 'span 2' }}>
-                        <label htmlFor="patientId">Paciente *</label>
-                        <select
+                        <PatientSearchPicker
                             id="patientId"
-                            name="patientId"
-                            value={form.patientId}
-                            onChange={handleChange}
+                            label="Paciente"
                             required
-                        >
-                            <option value="">Selecciona un paciente</option>
-                            {(patients || []).map(patient => (
-                                <option key={patient.id} value={patient.id}>
-                                    {patient.name}
-                                </option>
-                            ))}
-                        </select>
+                            patients={patients || []}
+                            selectedId={form.patientId}
+                            onSelect={(newId) => setForm(prev => ({ ...prev, patientId: String(newId) }))}
+                            placeholder="Buscar por nombre, cédula o código..."
+                        />
                     </div>
                 ) : (
                     <div className="field" style={{ gridColumn: 'span 2' }}>

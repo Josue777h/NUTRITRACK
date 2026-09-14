@@ -3,7 +3,9 @@ import BarChart from "../components/charts/BarChart";
 import LineChart from "../components/charts/LineChart";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
+import PatientSearchPicker from "../components/PatientSearchPicker";
 import ReportModal from "../components/ReportModal";
+
 
 function formatDate(dateValue) {
     if (!dateValue) return "—";
@@ -210,16 +212,14 @@ function ReportsPage() {
                             </div>
                         </div>
 
-                        <div className="field" style={{ margin: 0, minWidth: "260px" }}>
-                            <select
+                        <div style={{ margin: 0, minWidth: "280px", maxWidth: "420px", flex: 1 }}>
+                            <PatientSearchPicker
                                 id="patientSelect"
-                                value={selectedPatientId}
-                                onChange={(e) => setSelectedPatientId(e.target.value)}
-                            >
-                                {patients.map((p) => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
+                                patients={patients}
+                                selectedId={selectedPatientId}
+                                onSelect={(newId) => setSelectedPatientId(String(newId))}
+                                placeholder="Buscar por nombre, cédula o código..."
+                            />
                         </div>
                     </div>
                 )}

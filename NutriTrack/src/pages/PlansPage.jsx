@@ -3,6 +3,8 @@ import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import PlanModal from "../components/PlanModal";
 import ShoppingListModal from "../components/ShoppingListModal";
+import PatientSearchPicker from "../components/PatientSearchPicker";
+
 
 function PlansPage() {
     const { auth, patients, plans, addPlan, updatePlan, removePlan, copyPlan, generateWhatsAppPlanMessage } = useApp();
@@ -111,22 +113,17 @@ function PlansPage() {
                     )}
                 </div>
 
-                {/* Selector de paciente (solo nutriólogo) */}
+                {/* Selector de paciente con búsqueda en tiempo real (solo nutriólogo) */}
                 {auth.role === "nutriologo" && (
-                    <div className="field" style={{ maxWidth: "320px", marginTop: "1rem" }}>
-                        <label htmlFor="patientSelect">
-                            <i className="bi bi-person" style={{ marginRight: "0.4rem" }} />
-                            Ver planes del paciente:
-                        </label>
-                        <select
+                    <div style={{ maxWidth: "380px", marginTop: "1rem" }}>
+                        <PatientSearchPicker
                             id="patientSelect"
-                            value={selectedPatientId}
-                            onChange={(e) => setSelectedPatientId(e.target.value)}
-                        >
-                            {patients.map((p) => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                        </select>
+                            label="Ver planes del paciente:"
+                            patients={patients}
+                            selectedId={selectedPatientId}
+                            onSelect={(newId) => setSelectedPatientId(String(newId))}
+                            placeholder="Buscar por nombre, cédula o código..."
+                        />
                     </div>
                 )}
 
@@ -158,15 +155,15 @@ function PlansPage() {
 
                                 {/* Macro distribution linear bar */}
                                 <div style={{ background: "var(--surface-soft)", padding: "0.5rem 0.65rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)", display: "grid", gap: "0.35rem" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600 }}>
-                                        <span style={{ color: "#16a34a" }}>Prot: {pProt}%</span>
-                                        <span style={{ color: "#2563eb" }}>Carb: {pCarb}%</span>
-                                        <span style={{ color: "#d97706" }}>Grasa: {pFat}%</span>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: "var(--muted)", fontWeight: 700 }}>
+                                        <span style={{ color: "var(--success-text)" }}>Prot: {pProt}%</span>
+                                        <span style={{ color: "var(--info-text)" }}>Carb: {pCarb}%</span>
+                                        <span style={{ color: "var(--warning-text)" }}>Grasa: {pFat}%</span>
                                     </div>
                                     <div style={{ display: "flex", height: "6px", borderRadius: "999px", overflow: "hidden", background: "var(--line)" }}>
-                                        <div style={{ width: `${pProt}%`, background: "#16a34a" }} />
-                                        <div style={{ width: `${pCarb}%`, background: "#2563eb" }} />
-                                        <div style={{ width: `${pFat}%`, background: "#f59e0b" }} />
+                                        <div style={{ width: `${pProt}%`, background: "var(--success)" }} />
+                                        <div style={{ width: `${pCarb}%`, background: "var(--info)" }} />
+                                        <div style={{ width: `${pFat}%`, background: "var(--warning)" }} />
                                     </div>
                                 </div>
 

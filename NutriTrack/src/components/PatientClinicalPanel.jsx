@@ -854,7 +854,7 @@ function PatientClinicalPanel({ patient, onUpdate, onDelete }) {
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                             {weightEvolution && (
                                 <div className="panel" style={{ padding: "1rem", border: "1px solid var(--line)", display: "flex", gap: "0.75rem", alignItems: "center" }}>
-                                    <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: weightEvolution.descended ? "#16a34a15" : "#ef444415", color: weightEvolution.descended ? "#16a34a" : "#ef4444", display: "grid", placeItems: "center" }}>
+                                    <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: weightEvolution.descended ? "var(--success-soft)" : "var(--danger-soft)", color: weightEvolution.descended ? "var(--success-text)" : "var(--danger-text)", border: `1px solid ${weightEvolution.descended ? "var(--success-border)" : "var(--danger-border)"}`, display: "grid", placeItems: "center" }}>
                                         <i className={`bi ${weightEvolution.descended ? 'bi-arrow-down-right' : 'bi-arrow-up-right'}`} />
                                     </div>
                                     <div>

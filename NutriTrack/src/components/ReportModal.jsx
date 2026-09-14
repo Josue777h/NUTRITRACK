@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useToast } from '../context/ToastContext';
+import PatientSearchPicker from './PatientSearchPicker';
+
 
 const ReportModal = ({ report, patients = [], defaultPatientId, isOpen, onClose, onSave, onDelete, mode = 'view' }) => {
     const { showSuccess, showError } = useToast();
@@ -107,8 +109,8 @@ const ReportModal = ({ report, patients = [], defaultPatientId, isOpen, onClose,
 
     if (!isOpen) return null;
 
-    const handlePatientChange = (e) => {
-        const newPatientId = e.target.value;
+    const handlePatientChange = (valOrEvent) => {
+        const newPatientId = typeof valOrEvent === 'object' && valOrEvent?.target ? valOrEvent.target.value : valOrEvent;
         const selectedP = (patients || []).find(p => String(p.id) === String(newPatientId));
         setForm(prev => {
             const h = selectedP?.height ? String(selectedP.height) : prev.metrics.height;
@@ -121,7 +123,7 @@ const ReportModal = ({ report, patients = [], defaultPatientId, isOpen, onClose,
             }
             return {
                 ...prev,
-                patientId: newPatientId,
+                patientId: String(newPatientId || ''),
                 metrics: {
                     ...prev.metrics,
                     height: h,
@@ -478,21 +480,15 @@ const ReportModal = ({ report, patients = [], defaultPatientId, isOpen, onClose,
         <form className="modal-form" id="report-modal-form" onSubmit={handleSubmit}>
             <div className="modal-form-grid">
                 <div className="field">
-                    <label htmlFor="patientId">Paciente *</label>
-                    <select
+                    <PatientSearchPicker
                         id="patientId"
-                        name="patientId"
-                        value={form.patientId}
-                        onChange={handleChange}
+                        label="Paciente"
                         required
-                    >
-                        <option value="">Selecciona un paciente</option>
-                        {patients.map(patient => (
-                            <option key={patient.id} value={patient.id}>
-                                {patient.name}
-                            </option>
-                        ))}
-                    </select>
+                        patients={patients}
+                        selectedId={form.patientId}
+                        onSelect={(newId) => handlePatientChange(newId)}
+                        placeholder="Buscar por nombre, cédula o código..."
+                    />
                 </div>
                 <div className="field">
                     <label htmlFor="title">Título del Reporte *</label>

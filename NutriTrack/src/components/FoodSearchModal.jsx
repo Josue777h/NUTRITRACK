@@ -468,15 +468,15 @@ function FoodSearchModal({ isOpen, onClose, onSelectFood, targetMealName = "Comi
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.4rem", textAlign: "center" }}>
                                         <div style={{ background: "var(--surface)", padding: "0.4rem 0.2rem", borderRadius: "6px", border: "1px solid var(--line)" }}>
                                             <span style={{ fontSize: "0.68rem", color: "var(--muted)", display: "block" }}>Proteína</span>
-                                            <strong style={{ fontSize: "0.85rem", color: "#16a34a" }}>{calculatedNutrition.protein} g</strong>
+                                            <strong style={{ fontSize: "0.85rem", color: "var(--success-text)" }}>{calculatedNutrition.protein} g</strong>
                                         </div>
                                         <div style={{ background: "var(--surface)", padding: "0.4rem 0.2rem", borderRadius: "6px", border: "1px solid var(--line)" }}>
                                             <span style={{ fontSize: "0.68rem", color: "var(--muted)", display: "block" }}>Carbohidratos</span>
-                                            <strong style={{ fontSize: "0.85rem", color: "#2563eb" }}>{calculatedNutrition.carbohydrates} g</strong>
+                                            <strong style={{ fontSize: "0.85rem", color: "var(--info-text)" }}>{calculatedNutrition.carbohydrates} g</strong>
                                         </div>
                                         <div style={{ background: "var(--surface)", padding: "0.4rem 0.2rem", borderRadius: "6px", border: "1px solid var(--line)" }}>
                                             <span style={{ fontSize: "0.68rem", color: "var(--muted)", display: "block" }}>Grasas</span>
-                                            <strong style={{ fontSize: "0.85rem", color: "#f59e0b" }}>{calculatedNutrition.fat} g</strong>
+                                            <strong style={{ fontSize: "0.85rem", color: "var(--warning-text)" }}>{calculatedNutrition.fat} g</strong>
                                         </div>
                                     </div>
                                 </div>

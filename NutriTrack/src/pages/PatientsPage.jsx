@@ -79,18 +79,26 @@ function PatientsPage() {
         setSelectedPatientId(null);
     };
 
+function normalizeText(text) {
+    if (!text) return '';
+    return String(text)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
     // Filter patients based on search and target goal
     const filteredPatients = useMemo(() => {
         if (!patients) return [];
-        const term = searchTerm.toLowerCase().trim();
+        const term = normalizeText(searchTerm);
         return patients.filter((patient) => {
             const matchesSearch = !term ||
-                patient.name?.toLowerCase().includes(term) ||
-                patient.email?.toLowerCase().includes(term) ||
-                patient.document_id?.toLowerCase().includes(term) ||
-                patient.documentId?.toLowerCase().includes(term) ||
-                patient.clinical_code?.toLowerCase().includes(term) ||
-                patient.clinicalCode?.toLowerCase().includes(term) ||
+                normalizeText(patient.name).includes(term) ||
+                normalizeText(patient.email).includes(term) ||
+                normalizeText(patient.document_id || patient.documentId || patient.cedula || patient.docId).includes(term) ||
+                normalizeText(patient.clinical_code || patient.clinicalCode || patient.code || `pac-${patient.id}`).includes(term) ||
+                normalizeText(patient.phone).includes(term) ||
                 String(patient.id).includes(term);
 
             const matchesGoal = filterGoal === "" || 
@@ -138,14 +146,34 @@ function PatientsPage() {
                 {/* Search & Filters */}
                 <div style={{ display: "grid", gap: "0.5rem" }}>
                     <div className="field" style={{ margin: 0 }}>
-                        <div style={{ position: "relative" }}>
-                            <i className="bi bi-search" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", fontSize: "0.9rem" }} />
+                        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                            <i className="bi bi-search" style={{ position: "absolute", left: "0.75rem", color: "var(--muted)", fontSize: "0.85rem", pointerEvents: "none" }} />
                             <input
-                                placeholder="Buscar por nombre, cédula/DNI, código..."
+                                placeholder="Buscar por nombre, cédula, código..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{ paddingLeft: "2.25rem", fontSize: "0.85rem", height: "2.4rem" }}
+                                style={{ paddingLeft: "2.25rem", paddingRight: searchTerm ? "2rem" : "0.75rem", fontSize: "0.85rem", height: "2.4rem", width: "100%" }}
                             />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchTerm("")}
+                                    style={{
+                                        position: "absolute",
+                                        right: "0.5rem",
+                                        background: "transparent",
+                                        border: "none",
+                                        color: "var(--muted)",
+                                        cursor: "pointer",
+                                        padding: "0.2rem",
+                                        display: "flex",
+                                        alignItems: "center"
+                                    }}
+                                    title="Limpiar búsqueda"
+                                >
+                                    <i className="bi bi-x-lg" style={{ fontSize: "0.75rem" }} />
+                                </button>
+                            )}
                         </div>
                     </div>
                     <div className="field" style={{ margin: 0 }}>

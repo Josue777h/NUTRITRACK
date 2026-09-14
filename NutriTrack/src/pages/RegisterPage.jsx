@@ -172,8 +172,8 @@ function RegisterPage() {
                         ))}
                     </div>
 
-                    <div style={{ marginTop: "auto", fontSize: "0.74rem", color: "#475569", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                        <i className="bi bi-lock-fill" style={{ color: "#4ade80" }} />
+                    <div style={{ marginTop: "auto", fontSize: "0.74rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <i className="bi bi-lock-fill" style={{ color: "var(--primary)" }} />
                         Tus datos están protegidos con cifrado SSL/TLS
                     </div>
                 </div>

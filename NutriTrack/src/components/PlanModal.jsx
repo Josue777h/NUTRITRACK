@@ -3,7 +3,9 @@ import Modal from './Modal';
 import { useToast } from '../context/ToastContext';
 import { useApp } from '../context/AppContext';
 import FoodSearchModal from './FoodSearchModal';
+import PatientSearchPicker from './PatientSearchPicker';
 import { PRESET_DIET_TEMPLATES } from '../data/dietTemplates';
+
 
 const DEFAULT_MEAL_TYPES = [
     { id: 'desayuno', name: 'Desayuno', icon: 'bi-brightness-high', color: '#f59e0b', defaultTime: '08:00', defaultPct: 25 },
@@ -439,9 +441,9 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                             <div style={{ display: 'flex', gap: '1.25rem', borderTop: '1px dashed var(--line)', paddingTop: '0.55rem', fontSize: '0.8rem', color: 'var(--text-light)', flexWrap: 'wrap' }}>
                                 <span><i className="bi bi-bullseye" style={{ color: 'var(--primary)', marginRight: '0.3rem' }} />Objetivo: <strong>{form.target}</strong></span>
                                 <span><i className="bi bi-calendar3" style={{ color: 'var(--muted)', marginRight: '0.3rem' }} />Duración: <strong>{form.duration} semanas</strong></span>
-                                <span><i className="bi bi-shield-check" style={{ color: '#16a34a', marginRight: '0.3rem' }} />Prot: <strong>{calculatedMacros.proteinGrams}g ({form.proteinPct}%)</strong></span>
-                                <span><i className="bi bi-pie-chart" style={{ color: '#2563eb', marginRight: '0.3rem' }} />Carbs: <strong>{calculatedMacros.carbsGrams}g ({form.carbsPct}%)</strong></span>
-                                <span><i className="bi bi-droplet-half" style={{ color: '#f59e0b', marginRight: '0.3rem' }} />Grasas: <strong>{calculatedMacros.fatGrams}g ({form.fatPct}%)</strong></span>
+                                <span><i className="bi bi-shield-check" style={{ color: 'var(--success-text)', marginRight: '0.3rem' }} />Prot: <strong>{calculatedMacros.proteinGrams}g ({form.proteinPct}%)</strong></span>
+                                <span><i className="bi bi-pie-chart" style={{ color: 'var(--info-text)', marginRight: '0.3rem' }} />Carbs: <strong>{calculatedMacros.carbsGrams}g ({form.carbsPct}%)</strong></span>
+                                <span><i className="bi bi-droplet-half" style={{ color: 'var(--warning-text)', marginRight: '0.3rem' }} />Grasas: <strong>{calculatedMacros.fatGrams}g ({form.fatPct}%)</strong></span>
                             </div>
                         </div>
 
@@ -593,27 +595,15 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                             <div className="wizard-content">
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', alignItems: 'start' }}>
                                     <div className="field">
-                                        <label htmlFor="patient-select">
-                                            <i className="bi bi-person-check" style={{ color: 'var(--primary)', marginRight: '0.35rem' }} />
-                                            Selecciona el Paciente *
-                                        </label>
-                                        <select
+                                        <PatientSearchPicker
                                             id="patient-select"
-                                            value={form.patientId}
-                                            onChange={(e) => handlePatientChange(e.target.value)}
-                                            style={{ fontWeight: 600 }}
-                                        >
-                                            <option value="">-- Elige un paciente registrado --</option>
-                                            {patients.map((p) => {
-                                                const code = p.clinicalCode || p.clinical_code || `PAC-${p.id}`;
-                                                const doc = p.documentId || p.document_id;
-                                                return (
-                                                    <option key={p.id} value={p.id}>
-                                                        {p.name} ({code}{doc ? ` · CC: ${doc}` : ''})
-                                                    </option>
-                                                );
-                                            })}
-                                        </select>
+                                            label="Selecciona el Paciente"
+                                            required
+                                            patients={patients}
+                                            selectedId={form.patientId}
+                                            onSelect={(newId) => handlePatientChange(newId)}
+                                            placeholder="Buscar por nombre, cédula o código..."
+                                        />
                                     </div>
 
                                     <div className="field">
@@ -802,7 +792,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                         {/* Proteínas */}
                                         <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '0.85rem' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                                <span style={{ fontWeight: 700, color: '#16a34a', fontSize: '0.85rem' }}>
+                                                <span style={{ fontWeight: 700, color: 'var(--success-text)', fontSize: '0.85rem' }}>
                                                     <i className="bi bi-shield-check" style={{ marginRight: '0.3rem' }} />
                                                     Proteína
                                                 </span>
@@ -815,7 +805,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                                 step="5"
                                                 value={form.proteinPct}
                                                 onChange={(e) => setForm((p) => ({ ...p, proteinPct: Number(e.target.value) }))}
-                                                style={{ width: '100%', accentColor: '#16a34a' }}
+                                                style={{ width: '100%', accentColor: 'var(--success)' }}
                                             />
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
                                                 <span>Equivale a:</span>
@@ -826,7 +816,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                         {/* Carbohidratos */}
                                         <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '0.85rem' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                                <span style={{ fontWeight: 700, color: '#2563eb', fontSize: '0.85rem' }}>
+                                                <span style={{ fontWeight: 700, color: 'var(--info-text)', fontSize: '0.85rem' }}>
                                                     <i className="bi bi-pie-chart" style={{ marginRight: '0.3rem' }} />
                                                     Carbohidratos
                                                 </span>
@@ -839,7 +829,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                                 step="5"
                                                 value={form.carbsPct}
                                                 onChange={(e) => setForm((p) => ({ ...p, carbsPct: Number(e.target.value) }))}
-                                                style={{ width: '100%', accentColor: '#2563eb' }}
+                                                style={{ width: '100%', accentColor: 'var(--info)' }}
                                             />
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
                                                 <span>Equivale a:</span>
@@ -850,7 +840,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                         {/* Grasas */}
                                         <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: '0.85rem' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                                <span style={{ fontWeight: 700, color: '#d97706', fontSize: '0.85rem' }}>
+                                                <span style={{ fontWeight: 700, color: 'var(--warning-text)', fontSize: '0.85rem' }}>
                                                     <i className="bi bi-droplet-half" style={{ marginRight: '0.3rem' }} />
                                                     Grasas Saludables
                                                 </span>
@@ -863,7 +853,7 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                                 step="5"
                                                 value={form.fatPct}
                                                 onChange={(e) => setForm((p) => ({ ...p, fatPct: Number(e.target.value) }))}
-                                                style={{ width: '100%', accentColor: '#f59e0b' }}
+                                                style={{ width: '100%', accentColor: 'var(--warning)' }}
                                             />
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
                                                 <span>Equivale a:</span>
@@ -1074,9 +1064,9 @@ const PlanModal = ({ plan, patients = [], isOpen, onClose, onSave, mode = 'view'
                                     <div style={{ display: 'flex', gap: '1rem', borderTop: '1px dashed var(--line)', paddingTop: '0.5rem', fontSize: '0.78rem', flexWrap: 'wrap' }}>
                                         <span><i className="bi bi-bullseye" style={{ color: 'var(--primary)', marginRight: '0.25rem' }} />Objetivo: <strong>{form.target}</strong></span>
                                         <span><i className="bi bi-card-checklist" style={{ marginRight: '0.25rem' }} />Total alimentos: <strong>{planStats.totalFoods} ítems</strong></span>
-                                        <span><i className="bi bi-shield-check" style={{ color: '#16a34a', marginRight: '0.25rem' }} />Prot: <strong>{calculatedMacros.proteinGrams}g ({form.proteinPct}%)</strong></span>
-                                        <span><i className="bi bi-pie-chart" style={{ color: '#2563eb', marginRight: '0.25rem' }} />Carbs: <strong>{calculatedMacros.carbsGrams}g ({form.carbsPct}%)</strong></span>
-                                        <span><i className="bi bi-droplet-half" style={{ color: '#f59e0b', marginRight: '0.25rem' }} />Grasas: <strong>{calculatedMacros.fatGrams}g ({form.fatPct}%)</strong></span>
+                                        <span><i className="bi bi-shield-check" style={{ color: 'var(--success-text)', marginRight: '0.25rem' }} />Prot: <strong>{calculatedMacros.proteinGrams}g ({form.proteinPct}%)</strong></span>
+                                        <span><i className="bi bi-pie-chart" style={{ color: 'var(--info-text)', marginRight: '0.25rem' }} />Carbs: <strong>{calculatedMacros.carbsGrams}g ({form.carbsPct}%)</strong></span>
+                                        <span><i className="bi bi-droplet-half" style={{ color: 'var(--warning-text)', marginRight: '0.25rem' }} />Grasas: <strong>{calculatedMacros.fatGrams}g ({form.fatPct}%)</strong></span>
                                     </div>
                                 </div>
 
